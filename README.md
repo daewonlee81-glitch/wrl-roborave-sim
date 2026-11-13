@@ -16,7 +16,7 @@
 | WRL | MRC 축구 (Open·LEGO · Micro) | 조종형 | ✅ |
 | RoboRAVE | 스모봇 | 자율형 (SPIKE 워드블럭 코딩, 3판 2선승) | ✅ |
 | RoboRAVE | 라인 팔로잉 | 자율형 · 기록 도전 | 준비 중 |
-| RoboRAVE | 미들봇 | 조종형 · 기록 도전 | 준비 중 |
+| RoboRAVE | 미들봇 | 조종형 · 기록 도전 (메카넘 4WD + EEZYbotARM 흡착 로봇) | ✅ |
 | RoboRAVE | 사커봇 RC | 조종형 | ✅ |
 
 규정 요약은 [worldrobotleague.net/rules](https://worldrobotleague.net/rules/)를 바탕으로 했습니다. 규정은 바뀔 수 있으니 대회 전 공식 페이지를 확인하세요.
@@ -30,6 +30,7 @@
 | `js/tournament.js` | 16팀 대진표, 가상 팀 경기 결과, 진행 저장(localStorage) |
 | `games/rc/` | 조종 시뮬레이터 ([Robomakers_Simul](https://github.com/daewonlee81-glitch/Robomakers_Simul)) + `embed.js` 연결 코드 |
 | `games/sumo/` | 스모 워드블럭 시뮬레이터 ([roborave-sumo-simulator](https://github.com/daewonlee81-glitch/roborave-sumo-simulator)) + `embed.js` (단계별 상대 · 3판 2선승 · 프로그램 자동 저장) |
+| `games/middlebot/` | 미들봇 조종 시뮬레이터 — 메카넘 4WD + EEZYbotARM 흡착 로봇, 신호등 기둥·블록 쌓기 점수 (경기장 배치·점수표는 `CFG`에 모은 가정값) |
 | `img/` | WRL 2027 포스터의 로고와 종목 마스코트 |
 | `vendor/` | three.js 0.160 (MIT), cannon-es 0.20 (MIT) |
 

@@ -113,7 +113,7 @@ export const EVENTS = {
   },
   middlebot: {
     name: '미들봇', en: 'MiddleBot', league: 'roborave', icon: 'middlebot',
-    play: 'control', kind: 'record', engine: 'middlebot', status: 'soon',
+    play: 'control', kind: 'record', engine: 'middlebot', status: 'ready',
     src: 'https://worldrobotleague.net/rules/roborave/',
     rules: [
       '240 × 180 cm 경기장: 회색 출발 매트, 노란 분류 매트, 가운데 블록 구역, 신호등 기둥',
@@ -122,7 +122,7 @@ export const EVENTS = {
       '출발 구역으로 돌아와 버튼을 누르면 시간 정지 · 조건을 다 채우면 남은 시간도 점수',
       '팀마다 최대 5번 도전, 상위 3번 점수 합산 · MS·HS 디비전',
     ],
-    sim: ['조종형: 엑스박스 컨트롤러로 로봇을 몰아 기둥 버튼을 누르고 블록을 옮깁니다', '라운드마다 가상 팀의 기록을 넘어야 다음 라운드로 올라갑니다'],
+    sim: ['로봇: 메카넘 4WD + EEZYbotARM MK2 진공 흡착 (ESP32 · Bluepad32 펌웨어와 같은 조종 매핑)', '방향키 주행(RT 파워) · LT+←→ 평행이동 · 오른스틱 어깨 · 왼스틱 엘보 · RB+오른스틱 턴테이블 · A 집기 · B 놓기', '경기장 배치와 점수표(기본 10점 × 층수 × 배수, 출발 매트 +20)는 공식 도면 확인 전 가정값입니다', '라운드마다 가상 팀의 기록을 넘어야 다음 라운드로 올라갑니다'],
   },
   soccer_rc: {
     name: '사커봇 RC', en: 'SoccerBot RC', league: 'roborave', icon: 'soccer_rc',
@@ -145,7 +145,9 @@ export const EVENTS = {
 export const ROUND_NAMES = ['16강', '8강', '4강', '결승'];
 export const ROUND_LEVEL = [0.15, 0.45, 0.72, 1.0];
 // 엔진별 난이도 → 상대 AI 실력 값
+export function targetOf(engine, level) { if (engine === 'middlebot') return Math.round(25 + level * 195); return 0; }
 export function levelText(engine, level) {
+  if (engine === 'middlebot') return `목표 ${targetOf(engine, level)}점 넘기기`;
   if (engine === 'rc') return `AI ${Math.round(aiSkill('rc', level) * 100)}%`;
   if (engine === 'sumo') return `상대 로봇 ${1 + Math.round(level * 4)}단계 / 5`;
   return `난이도 ${Math.round(level * 100)}%`;

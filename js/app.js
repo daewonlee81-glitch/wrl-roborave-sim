@@ -1,4 +1,4 @@
-import { LEAGUES, EVENTS, ROUND_NAMES, aiSkill, levelText } from './events.js';
+import { LEAGUES, EVENTS, ROUND_NAMES, aiSkill, levelText, targetOf } from './events.js';
 import { ICONS, LEAGUE_ICONS } from './icons.js';
 const MASCOT = k => `<img class="mascot" src="img/mascot/${k}.png" alt="" draggable="false">`;
 import * as T from './tournament.js';
@@ -121,13 +121,13 @@ function eventPage(e, divKey) {
               : `<button class="btn pri" id="newT" ${ready ? '' : 'disabled'}>${t ? '새 대진표로 다시 도전' : '대진표 만들기'}</button>${t ? '<button class="btn" id="cont">지난 대진표 보기</button>' : ''}`}
           </div>
         </div>
-        ${ev.kind === 'versus' ? `<div class="card">
+        <div class="card">
           <h3>🎯 자유 연습</h3>
-          <label class="row">상대 실력 <b id="lvV">${stars(practiceLv)}</b></label>
+          <label class="row">${ev.kind === 'versus' ? '상대 실력' : '연습 목표'} <b id="lvV">${stars(practiceLv)}</b></label>
           <input type="range" id="lv" min="0" max="1" step="0.05" value="${practiceLv}">
           <div class="btns"><button class="btn" id="practice" ${ready ? '' : 'disabled'}>연습 경기</button>
           ${ev.engine === 'rc' ? `<button class="btn" id="free" ${ready ? '' : 'disabled'}>시간 무제한 연습</button>` : ''}</div>
-        </div>` : ''}
+        </div>
         ${ev.play === 'control' ? controlsCard(ev) : ''}
       </div>
     </div>
@@ -144,7 +144,9 @@ function eventPage(e, divKey) {
 }
 
 function controlsCard(ev) {
-  const rows = ev.key === 'othello' || ev.icon === 'othello'
+  const rows = ev.icon === 'middlebot'
+    ? [['방향키 ↑ ↓ / ← →', '전진·후진 / 제자리 회전 (50%)'], ['LT + 방향키 ← →', '좌우 평행이동'], ['RT', '파워 50% → 100%'], ['RB + 오른스틱 ← →', '턴테이블 회전'], ['오른스틱 ↕ · 왼스틱 ↕', '어깨 · 엘보'], ['A · B', '흡착 집기 · 놓기'], ['Y', '카메라']]
+    : ev.key === 'othello' || ev.icon === 'othello'
     ? [['D패드 ↑ ↓', '전진 · 후진 (기본 50%)'], ['D패드 ← →', '제자리 회전'], ['RT', '파워 50% → 100%'], ['A · B · Y', '플리퍼 90° · 45° · 16°'], ['키보드 C', '카메라 전환 (Y는 플리퍼)'], ['Menu', '일시정지']]
     : [['D패드 ↑ ↓', '전진 · 후진'], ['D패드 ← →', '포인트 턴'], ['D패드 대각선', '스윙턴'], ['RT', '누르는 동안 파워 100'], ['LT', '슛 (MRC Open·LEGO)'], ['RB', '조종 로봇 바꾸기'], ['Y', '카메라']];
   return `<div class="card"><h3>🎮 엑스박스 컨트롤러</h3>
@@ -207,6 +209,7 @@ function gameUrl(ev, div, o) {
   if (o.free) p.set('free', '1');
   if (ev.engine === 'rc') { p.set('rs', div.rs); p.set('ai', aiSkill('rc', o.level)); p.set('mate', 0.75); return 'games/rc/index.html?' + p; }
   p.set('event', ev.key || ''); p.set('level', o.level);
+  const tg = targetOf(ev.engine, o.level); if (tg) p.set('target', tg);
   return `games/${ev.engine}/index.html?` + p;
 }
 function openGame(e, div, o) {

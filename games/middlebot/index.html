@@ -1,0 +1,614 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>미들봇 조종 시뮬레이터 — RoboRAVE MiddleBot</title>
+<link rel="icon" href="../../favicon.svg" type="image/svg+xml">
+<style>
+:root{--bg:#1d2238;--panel:#262c47ee;--line:#454d74;--text:#eef0f8;--mute:#a7abc6;--gold:#ffd25a;--ok:#3fb950}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;overflow:hidden;background:var(--bg);color:var(--text);font:13px/1.45 system-ui,-apple-system,"Apple SD Gothic Neo","Malgun Gothic",sans-serif}
+#view{position:absolute;inset:0;outline:none}
+#view canvas{display:block;width:100%;height:100%}
+.btn{background:#3a4166;color:var(--text);border:1px solid var(--line);border-radius:8px;padding:6px 12px;cursor:pointer;font:inherit;font-weight:600}
+.btn:hover{background:#474f7a}
+.btn.pri{background:linear-gradient(90deg,#ffd25a,#ff8f5a);color:#2a1d05;border-color:transparent}
+#top{position:absolute;top:10px;left:50%;transform:translateX(-50%);display:flex;gap:0;filter:drop-shadow(0 2px 8px #0008);pointer-events:none}
+#top>div{background:#0d1117e6;padding:6px 16px;text-align:center}
+#top .clock{font-size:24px;font-weight:800;font-variant-numeric:tabular-nums;border-radius:10px 0 0 10px;min-width:100px}
+#top .score{font-size:24px;font-weight:800;color:var(--gold);border-radius:0 10px 10px 0;min-width:120px;background:#2b2410e6}
+#top small{display:block;font-size:11px;color:var(--mute);font-weight:500}
+#exit{position:absolute;left:10px;top:10px;z-index:6}
+#side{position:absolute;left:10px;top:52px;width:250px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:9px 11px;font-size:12px;pointer-events:none}
+#side h4{margin:0 0 4px;font-size:12px;color:var(--mute);font-weight:600}
+#side .poles{display:flex;gap:8px;margin-bottom:6px}
+#side .pole{flex:1;text-align:center;border:1px solid var(--line);border-radius:7px;padding:3px 0}
+#side .pole i{display:block;width:18px;height:18px;border-radius:4px;margin:2px auto;background:#222;border:1px solid #555}
+#side .row{display:flex;justify-content:space-between;gap:6px;border-top:1px solid #ffffff10;padding:3px 0}
+#side .row b{font-variant-numeric:tabular-nums}
+#side .msg{margin-top:6px;color:var(--gold)}
+#pad{position:absolute;left:10px;bottom:10px;background:#0d1117e6;border:1px solid var(--line);border-radius:10px;padding:6px 10px;font-size:12px;display:flex;gap:8px;align-items:center}
+#pad i{width:9px;height:9px;border-radius:50%;background:#6e7681;display:inline-block}
+#pad.on{border-color:var(--ok)} #pad.on i{background:var(--ok);box-shadow:0 0 6px var(--ok)}
+#cam{position:absolute;right:10px;bottom:10px;background:#0d1117cc;border:1px solid var(--line);border-radius:8px;padding:6px 10px;font-size:12px;pointer-events:none}
+#helpBtn{position:absolute;right:10px;top:10px;z-index:6}
+#help{position:absolute;right:10px;top:52px;width:330px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:12px;display:none;max-height:calc(100% - 110px);overflow:auto}
+#help.on{display:block}
+#help table{width:100%;border-collapse:collapse}
+#help td{border-bottom:1px solid #ffffff12;padding:4px 3px;vertical-align:top}
+#help td:first-child{color:var(--mute);white-space:nowrap;width:44%}
+#help h4{margin:8px 0 4px;font-size:12px}
+#help h4:first-child{margin-top:0}
+#banner{position:absolute;top:34%;left:50%;transform:translate(-50%,-50%);font-size:clamp(20px,2.8vw,40px);font-weight:800;text-shadow:0 3px 12px #000;pointer-events:none;text-align:center;white-space:pre-line;opacity:0;transition:opacity .2s;max-width:92%}
+#banner.show{opacity:1}
+#overlay{position:absolute;inset:0;background:#0b0f14d0;display:flex;align-items:center;justify-content:center;z-index:8;padding:16px}
+.card{background:#2b3150;border:1px solid var(--line);border-radius:14px;padding:20px 24px;max-width:640px;box-shadow:0 20px 60px #000a}
+.card h1{margin:0 0 6px;font-size:22px}
+.card p{margin:6px 0;color:#d6d9ec}
+.card .note{color:var(--mute);font-size:12px}
+.card table{width:100%;border-collapse:collapse;font-size:12px;margin-top:6px}
+.card td{border-bottom:1px solid #ffffff12;padding:4px 3px}
+.card td:first-child{color:var(--mute);white-space:nowrap}
+.card .cols{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.card label{display:flex;gap:8px;align-items:center;margin-top:8px}
+.card select{background:#1f2440;color:var(--text);border:1px solid var(--line);border-radius:6px;padding:4px}
+#endCard table td:last-child{text-align:right;font-variant-numeric:tabular-nums}
+</style>
+<script type="importmap">
+{"imports":{"three":"../../vendor/three/build/three.module.js","three/addons/":"../../vendor/three/examples/jsm/","cannon-es":"../../vendor/cannon-es/cannon-es.js"}}
+</script>
+</head>
+<body>
+<div id="view" tabindex="0">
+  <div id="top"><div class="clock" id="clock">3:00<small id="phase">대기</small></div><div class="score" id="score">0<small>점수</small></div></div>
+  <button class="btn" id="exit">← 나가기</button>
+  <div id="side"></div>
+  <div id="banner"></div>
+  <div id="pad"><i></i><span id="padTxt">컨트롤러 없음 — 키보드 사용 (버튼을 한 번 누르면 연결)</span></div>
+  <div id="cam"></div>
+  <button class="btn" id="helpBtn">조작법 (H)</button>
+  <div id="help"></div>
+  <div id="overlay"><div class="card" id="startCard"></div></div>
+</div>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import * as CANNON from 'cannon-es';
+
+/* ============================================================
+   미들봇 조종 시뮬레이터
+   로봇: 메카넘 4WD + EEZYbotARM MK2(그리퍼 대신 진공 흡착) — NodeMCU-32S + Bluepad32 + Xbox
+   조종: 「메카넘 4WD + EEZYbotARM(흡착) 로봇 — 전체 프로젝트 문서」 5장 그대로
+   경기장·점수: RoboRAVE MiddleBot 규정 요약 기준. 공식 도면·점수표에 없는 값은 CFG에 모아 '가정'으로 표시
+   ============================================================ */
+const CFG = {
+  field: { L: 2.40, W: 1.80, wall: 0.05 },               // 240 × 180 cm (가장자리 5 cm 턱: 가정)
+  startMat: { x: -0.98, z: 0, s: 0.40 },                 // 회색 출발 매트 (위치·크기: 가정)
+  startPole: { x: -1.13, z: 0 },                         // 출발 구역 뒤 시작 기둥
+  center: { x: 0, z: 0, s: 0.44 },                       // 가운데 블록 구역 (가정)
+  mats: [                                                // 노란 분류 매트 + 옆 신호등 기둥 (배치: 가정)
+    { x: 0.62, z: -0.58, s: 0.30, pole: { x: 0.62, z: -0.81 } },
+    { x: 0.95, z: 0.00, s: 0.30, pole: { x: 1.18 - 0.06, z: 0.00 } },
+    { x: 0.62, z: 0.58, s: 0.30, pole: { x: 0.62, z: 0.81 } },
+  ],
+  pole: { w: 0.12, h: 0.20 },                            // 12 × 12 × 20 cm
+  block: { s: 0.07, mass: 0.12, perColor: 3 },           // 약 7 cm, 색마다 3개 (개수·무게: 가정)
+  score: { base: 10, mult: [1, 1.5, 2, 2.5, 3], startBonus: 20 }, // 블록 점수 = 기본점 × 층수 × 배수 (가정)
+  time: 180,                                             // 2~5분 중 3분 (가정)
+};
+const COLORS = { R: 0xe53935, G: 0x2fb344, B: 0x2f6bff };
+const CNAME = { R: '빨강', G: '초록', B: '파랑' };
+// 펌웨어 상수 (mecanum_eezybotarm_robot.ino)
+const FW = { BASE_SPEED: 0.5, MAX_SPEED: 1.0, SH_MIN: 20, SH_MAX: 120, EL_MIN: 70, EL_MAX: 180, LIMIT_EASE: 12, ARM_STEP: 2.2, DEADZONE: 0.18, ARM_FILT: 0.35, VENT_MS: 350 };
+const TICK = 0.02;          // 펌웨어 루프 20 ms로 가정 → ARM_STEP 2.2°/틱 = 110°/s
+const ROBOT = { vmax: 0.85, wmax: 3.2, base_dps: 90, L: 0.26, W: 0.18 }; // JGA25-370 12V + Ø80 메카넘 (속도: 가정)
+const ARM = { L1: 0.135, L2: 0.205, H0: 0.185, mountX: 0.045, drop: 0.075, tipR: 0.012 }; // 링크 길이(m)
+
+/* ---------------- 파라미터 · 상위 화면 연결 ---------------- */
+const P = new URLSearchParams(location.search);
+const EMBED = P.get('embed') === '1';
+const MODE = P.get('mode') || 'practice';
+const LEVEL = Math.max(0, Math.min(1, +(P.get('level') || 0.3)));
+const TARGET = +(P.get('target') || 0);
+const post = m => { if (EMBED) try { parent.postMessage(Object.assign({ source: 'wrlsim' }, m), '*'); } catch (e) {} };
+const $ = s => document.querySelector(s);
+const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+const store = { get(k, d) { try { const v = localStorage.getItem('wrlsim.mb.' + k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } }, set(k, v) { try { localStorage.setItem('wrlsim.mb.' + k, JSON.stringify(v)); } catch (e) {} } };
+const SET = { elbowInv: store.get('elbowInv', false), time: store.get('time', CFG.time) };
+if (MODE === 'match') SET.time = CFG.time;
+
+/* ---------------- 사운드 ---------------- */
+let AC = null;
+function beep(f = 1200, d = 0.08, v = 0.05, type = 'square') { try { AC = AC || new AudioContext(); const o = AC.createOscillator(), g = AC.createGain(); o.type = type; o.frequency.value = f; g.gain.value = v; o.connect(g); g.connect(AC.destination); o.start(); g.gain.exponentialRampToValueAtTime(0.0001, AC.currentTime + d); o.stop(AC.currentTime + d); } catch (e) {} }
+
+/* ---------------- 렌더러 ---------------- */
+const view = $('#view');
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+view.prepend(renderer.domElement);
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x2c3150);
+scene.fog = new THREE.Fog(0x2c3150, 6, 14);
+const camera = new THREE.PerspectiveCamera(50, 1, 0.01, 50);
+const controls = new OrbitControls(camera, renderer.domElement); controls.enabled = false;
+scene.add(new THREE.HemisphereLight(0xffffff, 0x445066, 0.9));
+const sun = new THREE.DirectionalLight(0xffffff, 1.6); sun.position.set(1.2, 3.2, 1.6); sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048); Object.assign(sun.shadow.camera, { left: -1.8, right: 1.8, top: 1.5, bottom: -1.5, near: 0.5, far: 8 }); scene.add(sun);
+function resize() { const w = view.clientWidth, h = view.clientHeight; renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix(); }
+new ResizeObserver(resize).observe(view);
+
+/* ---------------- 경기장 ---------------- */
+const F = CFG.field, PX = 1000; // 1 m = 1000 px
+function fieldTexture() {
+  const c = document.createElement('canvas'); c.width = F.L * PX; c.height = F.W * PX; const g = c.getContext('2d');
+  const X = x => (x + F.L / 2) * PX, Z = z => (z + F.W / 2) * PX;
+  g.fillStyle = '#f3f2ee'; g.fillRect(0, 0, c.width, c.height);
+  g.strokeStyle = '#00000012'; g.lineWidth = 2; for (let x = 0; x <= c.width; x += 100) { g.beginPath(); g.moveTo(x, 0); g.lineTo(x, c.height); g.stroke(); } for (let y = 0; y <= c.height; y += 100) { g.beginPath(); g.moveTo(0, y); g.lineTo(c.width, y); g.stroke(); }
+  const rect = (cx, cz, s, fill, stroke, lw = 8) => { g.fillStyle = fill; g.fillRect(X(cx - s / 2), Z(cz - s / 2), s * PX, s * PX); if (stroke) { g.strokeStyle = stroke; g.lineWidth = lw; g.strokeRect(X(cx - s / 2), Z(cz - s / 2), s * PX, s * PX); } };
+  const S = CFG.startMat; rect(S.x, S.z, S.s, '#9aa1ab', '#5d636c');
+  g.fillStyle = '#ffffffcc'; g.font = 'bold 54px system-ui'; g.textAlign = 'center'; g.fillText('START', X(S.x), Z(S.z) + 18);
+  const C = CFG.center; rect(C.x, C.z, C.s, '#dfe5ee', '#8792a3', 6);
+  for (const m of CFG.mats) rect(m.x, m.z, m.s, '#ffd21f', '#1b1b1b', 6);
+  g.strokeStyle = '#1b1b1b'; g.lineWidth = 30; g.strokeRect(15, 15, c.width - 30, c.height - 30);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8; return t;
+}
+const floor = new THREE.Mesh(new THREE.PlaneGeometry(F.L, F.W), new THREE.MeshStandardMaterial({ map: fieldTexture(), roughness: 0.9 }));
+floor.rotation.x = -Math.PI / 2; floor.receiveShadow = true; scene.add(floor);
+const under = new THREE.Mesh(new THREE.PlaneGeometry(9, 9), new THREE.MeshStandardMaterial({ color: 0x3a3f5c, roughness: 1 }));
+under.rotation.x = -Math.PI / 2; under.position.y = -0.002; under.receiveShadow = true; scene.add(under);
+const wallMat = new THREE.MeshStandardMaterial({ color: 0x2b2f3a, roughness: 0.7 });
+for (const [w, d, x, z] of [[F.L + 0.04, 0.02, 0, -F.W / 2 - 0.01], [F.L + 0.04, 0.02, 0, F.W / 2 + 0.01], [0.02, F.W, -F.L / 2 - 0.01, 0], [0.02, F.W, F.L / 2 + 0.01, 0]]) {
+  const m = new THREE.Mesh(new THREE.BoxGeometry(w, F.wall, d), wallMat); m.position.set(x, F.wall / 2, z); m.castShadow = m.receiveShadow = true; scene.add(m);
+}
+
+/* 신호등 기둥: 꼭대기 버튼 + 앞면 표시등 */
+const POLES = [];
+function makePole(p, kind, idx) {
+  const g = new THREE.Group(); g.position.set(p.x, 0, p.z);
+  const body = new THREE.Mesh(new THREE.BoxGeometry(CFG.pole.w, CFG.pole.h, CFG.pole.w), new THREE.MeshStandardMaterial({ color: 0x30343d, roughness: 0.6 }));
+  body.position.y = CFG.pole.h / 2; body.castShadow = body.receiveShadow = true; g.add(body);
+  const btn = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.022, 0.012, 24), new THREE.MeshStandardMaterial({ color: kind === 'start' ? 0x2fb344 : 0xd8d8d8, roughness: 0.4 }));
+  btn.position.y = CFG.pole.h + 0.006; btn.castShadow = true; g.add(btn);
+  // 표시등: 경기장 가운데를 보는 면 (네 면 모두에 붙여 어디서나 보이게)
+  const lamps = [];
+  for (let k = 0; k < 4; k++) {
+    const lamp = new THREE.Mesh(new THREE.PlaneGeometry(0.08, 0.09), new THREE.MeshStandardMaterial({ color: 0x111111, emissive: 0x000000, roughness: 0.3 }));
+    const a = k * Math.PI / 2; lamp.position.set(Math.sin(a) * (CFG.pole.w / 2 + 0.001), 0.13, Math.cos(a) * (CFG.pole.w / 2 + 0.001)); lamp.rotation.y = a; g.add(lamp); lamps.push(lamp);
+  }
+  scene.add(g);
+  const pole = { kind, idx, x: p.x, z: p.z, g, btn, lamps, color: null, armed: true, pressT: 0 };
+  POLES.push(pole); return pole;
+}
+function setLamp(p, col) {
+  p.color = col; const c = col === 'RUN' ? 0x3fb950 : col === 'STOP' ? 0xff9a3c : col ? COLORS[col] : 0x111111;
+  for (const l of p.lamps) { l.material.color.setHex(col ? c : 0x111111); l.material.emissive.setHex(col ? c : 0); l.material.emissiveIntensity = col ? 0.9 : 0; }
+}
+const startPole = makePole(CFG.startPole, 'start', -1);
+CFG.mats.forEach((m, i) => { m.poleRef = makePole(m.pole, 'signal', i); });
+
+/* ---------------- 물리 ---------------- */
+const world = new CANNON.World({ gravity: new CANNON.Vec3(0, -9.81, 0) });
+world.broadphase = new CANNON.SAPBroadphase(world); world.allowSleep = true;
+world.solver.iterations = 25; world.solver.tolerance = 1e-4;
+const mGround = new CANNON.Material('g'), mBlock = new CANNON.Material('b'), mRobot = new CANNON.Material('r');
+world.addContactMaterial(new CANNON.ContactMaterial(mGround, mBlock, { friction: 0.5, restitution: 0.02 }));
+world.addContactMaterial(new CANNON.ContactMaterial(mBlock, mBlock, { friction: 0.6, restitution: 0.0 }));
+world.addContactMaterial(new CANNON.ContactMaterial(mRobot, mBlock, { friction: 0.3, restitution: 0.0 }));
+world.defaultContactMaterial.contactEquationStiffness = 1e7; world.defaultContactMaterial.contactEquationRelaxation = 3;
+const ground = new CANNON.Body({ mass: 0, material: mGround, shape: new CANNON.Plane() }); ground.quaternion.setFromEuler(-Math.PI / 2, 0, 0); world.addBody(ground);
+const sbox = (hx, hy, hz, x, y, z) => { const b = new CANNON.Body({ mass: 0, material: mGround, shape: new CANNON.Box(new CANNON.Vec3(hx, hy, hz)) }); b.position.set(x, y, z); world.addBody(b); return b; };
+sbox(F.L / 2 + 0.02, F.wall / 2, 0.01, 0, F.wall / 2, -F.W / 2 - 0.01); sbox(F.L / 2 + 0.02, F.wall / 2, 0.01, 0, F.wall / 2, F.W / 2 + 0.01);
+sbox(0.01, F.wall / 2, F.W / 2, -F.L / 2 - 0.01, F.wall / 2, 0); sbox(0.01, F.wall / 2, F.W / 2, F.L / 2 + 0.01, F.wall / 2, 0);
+for (const p of POLES) sbox(CFG.pole.w / 2, CFG.pole.h / 2, CFG.pole.w / 2, p.x, CFG.pole.h / 2, p.z);
+
+/* 블록 */
+const BLOCKS = [];
+const blockGeo = (() => { const s = CFG.block.s; const g = new THREE.BoxGeometry(s, s, s); return g; })();
+function makeBlock(col, x, z) {
+  const s = CFG.block.s;
+  const mesh = new THREE.Mesh(blockGeo, new THREE.MeshStandardMaterial({ color: COLORS[col], roughness: 0.55 }));
+  mesh.castShadow = mesh.receiveShadow = true; scene.add(mesh);
+  const edges = new THREE.LineSegments(new THREE.EdgesGeometry(blockGeo), new THREE.LineBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.35 })); mesh.add(edges);
+  const body = new CANNON.Body({ mass: CFG.block.mass, material: mBlock, shape: new CANNON.Box(new CANNON.Vec3(s / 2, s / 2, s / 2)), linearDamping: 0.05, angularDamping: 0.1 });
+  body.position.set(x, s / 2 + 0.0005, z); body.sleepSpeedLimit = 0.02; body.sleepTimeLimit = 0.5; world.addBody(body);
+  const b = { col, mesh, body, held: false }; BLOCKS.push(b); return b;
+}
+
+/* ---------------- 로봇 ---------------- */
+const R = { x: 0, z: 0, th: 0, vx: 0, vz: 0, w: 0, vxr: 0, vyr: 0, base: 0, sh: 75, el: 140, shF: 0, elF: 0, pump: false, held: null, vent: 0, power: 0.5 };
+const robot = new THREE.Group(); scene.add(robot);
+const matOrange = new THREE.MeshStandardMaterial({ color: 0xf07a1c, roughness: 0.55 });
+const matBlack = new THREE.MeshStandardMaterial({ color: 0x1d1f24, roughness: 0.6 });
+const matTan = new THREE.MeshStandardMaterial({ color: 0xc9a87e, roughness: 0.65 });
+const matGreen = new THREE.MeshStandardMaterial({ color: 0x45c060, roughness: 0.5 });
+const matSilver = new THREE.MeshStandardMaterial({ color: 0xb9bec7, metalness: 0.6, roughness: 0.35 });
+function box(w, h, d, mat, x, y, z, parent = robot) { const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat); m.position.set(x, y, z); m.castShadow = true; m.receiveShadow = true; parent.add(m); return m; }
+// 차체: 검은 프레임 + 주황 상판 + 앞쪽 전자부 탑 (사진)
+box(ROBOT.L, 0.035, ROBOT.W, matBlack, 0, 0.045, 0);
+box(ROBOT.L + 0.01, 0.008, ROBOT.W + 0.03, matOrange, 0, 0.067, 0);
+box(0.10, 0.03, 0.11, matOrange, -0.075, 0.09, 0.03);
+box(0.10, 0.006, 0.11, matOrange, -0.075, 0.115, 0.03);
+box(0.10, 0.006, 0.11, matOrange, -0.075, 0.155, 0.03);
+for (const [x, z] of [[-0.12, -0.02], [-0.03, -0.02], [-0.12, 0.08], [-0.03, 0.08]]) box(0.006, 0.05, 0.006, matSilver, x, 0.135, z);
+box(0.02, 0.012, 0.11, matBlack, -0.075, 0.162, 0.01); box(0.02, 0.012, 0.11, matBlack, -0.055, 0.162, 0.01); // 고정 스트랩
+{ const sw = box(0.012, 0.025, 0.012, matSilver, -0.1, 0.175, 0.07); sw.rotation.z = 0.3; }
+// 메카넘 휠 4개 (Ø80): 롤러 X 배치
+const WHEELS = [];
+function mecanum(x, z, mirror) {
+  const g = new THREE.Group(); g.position.set(x, 0.04, z); robot.add(g);
+  const hub = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.032, 20), matSilver); hub.rotation.x = Math.PI / 2; g.add(hub);
+  const spin = new THREE.Group(); g.add(spin);
+  const rg = new THREE.CapsuleGeometry(0.009, 0.028, 4, 8);
+  for (let i = 0; i < 9; i++) {
+    const a = i / 9 * Math.PI * 2; const r = new THREE.Mesh(rg, matBlack);
+    r.position.set(Math.cos(a) * 0.031, Math.sin(a) * 0.031, 0);
+    r.rotation.order = 'ZXY'; r.rotation.z = a; r.rotation.x = Math.PI / 2 + (mirror ? 0.78 : -0.78); r.castShadow = true; spin.add(r);
+  }
+  const plate = new THREE.Mesh(new THREE.CylinderGeometry(0.026, 0.026, 0.036, 20), matBlack); plate.rotation.x = Math.PI / 2; g.add(plate);
+  WHEELS.push({ g, spin, x, z }); return g;
+}
+mecanum(0.09, -0.118, false); mecanum(0.09, 0.118, true); mecanum(-0.09, -0.118, true); mecanum(-0.09, 0.118, false);
+for (const [x, z] of [[0.09, -0.098], [0.09, 0.098], [-0.09, -0.098], [-0.09, 0.098]]) { const m = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.035, 12), matSilver); m.rotation.x = Math.PI / 2; m.position.set(x, 0.04, z); robot.add(m); }
+// 로봇팔 (EEZYbotARM MK2): 턴테이블 → 어깨 → 엘보 → 평행링크로 수평 유지되는 흡착컵
+const turn = new THREE.Group(); turn.position.set(ARM.mountX, 0.071, 0); robot.add(turn);
+{ const m = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.06, 0.05, 32), matTan); m.position.y = 0.025; m.castShadow = true; turn.add(m); }
+{ const m = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.012, 32), matTan); m.position.y = 0.056; turn.add(m); }
+box(0.03, 0.04, 0.02, matBlack, 0.0, 0.08, -0.06, turn); box(0.03, 0.04, 0.02, matBlack, 0.0, 0.08, 0.06, turn); // 어깨·엘보 서보
+box(0.05, 0.07, 0.012, matTan, 0, 0.095, -0.035, turn); box(0.05, 0.07, 0.012, matTan, 0, 0.095, 0.035, turn);
+const shoulder = new THREE.Group(); shoulder.position.set(0, ARM.H0 - 0.071, 0); turn.add(shoulder);
+const upper = new THREE.Group(); shoulder.add(upper);
+box(ARM.L1, 0.026, 0.014, matTan, ARM.L1 / 2, 0, -0.018, upper); box(ARM.L1, 0.026, 0.014, matTan, ARM.L1 / 2, 0, 0.018, upper);
+const elbow = new THREE.Group(); elbow.position.set(ARM.L1, 0, 0); upper.add(elbow);
+const fore = new THREE.Group(); elbow.add(fore);
+box(ARM.L2 + 0.03, 0.03, 0.022, matTan, ARM.L2 / 2 - 0.015, 0, 0, fore);
+box(ARM.L2 * 0.8, 0.008, 0.008, matTan, ARM.L2 * 0.45, 0.028, 0, fore); // 보조 링크
+for (const g of [shoulder, elbow]) { const pin = new THREE.Mesh(new THREE.CylinderGeometry(0.007, 0.007, 0.06, 10), matSilver); pin.rotation.x = Math.PI / 2; g.add(pin); }
+const wrist = new THREE.Group(); scene.add(wrist); // 월드 좌표에서 수평 유지
+{ const g = box(0.035, 0.05, 0.04, matGreen, 0, -0.025, 0, wrist); }
+{ const m = new THREE.Mesh(new THREE.CylinderGeometry(0.006, 0.006, 0.02, 10), matSilver); m.position.y = -0.06; wrist.add(m); }
+const cup = new THREE.Mesh(new THREE.CylinderGeometry(0.009, 0.013, 0.016, 16), new THREE.MeshStandardMaterial({ color: 0xf2f2f2, transparent: true, opacity: 0.85, roughness: 0.3 }));
+cup.position.y = -ARM.drop + 0.008; wrist.add(cup);
+const tube = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3([new THREE.Vector3(), new THREE.Vector3(0, 0.1, 0), new THREE.Vector3(0.1, 0.12, 0)]), 20, 0.0035, 6), new THREE.MeshStandardMaterial({ color: 0xe8eef2, transparent: true, opacity: 0.6 }));
+scene.add(tube);
+const label = (() => { const c = document.createElement('canvas'); c.width = 128; c.height = 64; const g = c.getContext('2d'); g.fillStyle = '#2f6bff'; g.fillRect(0, 0, 128, 64); g.fillStyle = '#fff'; g.font = 'bold 40px system-ui'; g.textAlign = 'center'; g.fillText('나', 64, 46); const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(c), depthTest: false })); s.scale.set(0.07, 0.035, 1); s.position.set(-0.075, 0.24, 0.03); robot.add(s); return s; })();
+
+// 로봇 몸체(키네마틱)와 흡착컵 끝(키네마틱 구)
+const chassisBody = new CANNON.Body({ mass: 0, type: CANNON.Body.KINEMATIC, material: mRobot });
+chassisBody.addShape(new CANNON.Box(new CANNON.Vec3(ROBOT.L / 2 + 0.005, 0.04, ROBOT.W / 2 + 0.035)), new CANNON.Vec3(0, 0.05, 0));
+chassisBody.addShape(new CANNON.Box(new CANNON.Vec3(0.05, 0.05, 0.055)), new CANNON.Vec3(-0.075, 0.12, 0.03));
+chassisBody.addShape(new CANNON.Cylinder(0.058, 0.058, 0.06, 12), new CANNON.Vec3(ARM.mountX, 0.10, 0));
+world.addBody(chassisBody);
+const tipBody = new CANNON.Body({ mass: 0, type: CANNON.Body.KINEMATIC, material: mRobot, shape: new CANNON.Sphere(ARM.tipR) }); world.addBody(tipBody);
+const ROBOT_R = 0.17; // 벽·기둥과의 충돌 반경 (바퀴 포함 발자국)
+
+/* 팔 기구학: 어깨 SH(20~120°) = 위팔 앙각, 엘보 EL(70~180°) → 아래팔 앙각 +35° ~ −60° */
+const phi1 = sh => THREE.MathUtils.degToRad(sh);
+const phi2 = el => THREE.MathUtils.degToRad(35 - (el - FW.EL_MIN) * 95 / (FW.EL_MAX - FW.EL_MIN));
+function armLocal(sh, el) { const a = phi1(sh), b = phi2(el); return { r: ARM.L1 * Math.cos(a) + ARM.L2 * Math.cos(b), y: ARM.H0 + ARM.L1 * Math.sin(a) + ARM.L2 * Math.sin(b) }; }
+function tipWorld(st = R) {
+  const { r, y } = armLocal(st.sh, st.el); const yaw = st.th + st.base;
+  const mx = st.x + Math.cos(st.th) * ARM.mountX, mz = st.z - Math.sin(st.th) * ARM.mountX;
+  return { x: mx + Math.cos(yaw) * r, y: y - ARM.drop, z: mz - Math.sin(yaw) * r, wy: y };
+}
+
+/* ---------------- 입력 ---------------- */
+const KEY = new Set();
+addEventListener('keydown', e => { if (e.target.tagName === 'SELECT' || e.target.tagName === 'INPUT') return; KEY.add(e.code); if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Tab'].includes(e.code)) e.preventDefault(); onKeyEdge(e.code); });
+addEventListener('keyup', e => KEY.delete(e.code));
+addEventListener('blur', () => KEY.clear());
+let padIdx = -1, padPrev = [];
+addEventListener('gamepadconnected', e => { padIdx = e.gamepad.index; });
+function getPad() { const ps = navigator.getGamepads ? [...navigator.getGamepads()].filter(Boolean) : []; if (!ps.length) return null; return ps.find(p => p.index === padIdx) || ps[0]; }
+const dz = v => Math.abs(v) < FW.DEADZONE ? 0 : (v - Math.sign(v) * FW.DEADZONE) / (1 - FW.DEADZONE);
+function readInput() {
+  const p = getPad(); const IN = { up: 0, dn: 0, lf: 0, rg: 0, lt: 0, rt: 0, rb: 0, lx: 0, ly: 0, rx: 0, ry: 0, a: 0, b: 0, pad: !!p };
+  if (p) {
+    const B = i => !!(p.buttons[i] && (p.buttons[i].pressed || p.buttons[i].value > 0.5)); const V = i => p.buttons[i] ? p.buttons[i].value : 0;
+    IN.up = B(12); IN.dn = B(13); IN.lf = B(14); IN.rg = B(15); IN.lt = V(6); IN.rt = V(7); IN.rb = B(5); IN.a = B(0); IN.b = B(1);
+    IN.lx = dz(p.axes[0] || 0); IN.ly = dz(p.axes[1] || 0); IN.rx = dz(p.axes[2] || 0); IN.ry = dz(p.axes[3] || 0);
+    const now = p.buttons.map(b => b.pressed); const edge = i => now[i] && !padPrev[i];
+    if (edge(3)) cycleCam(); if (edge(9)) togglePause(); if (edge(8)) resetRun(); padPrev = now;
+  }
+  const k = c => KEY.has(c);
+  if (k('KeyW')) IN.up = 1; if (k('KeyS')) IN.dn = 1; if (k('KeyA')) IN.lf = 1; if (k('KeyD')) IN.rg = 1;
+  if (k('KeyQ')) { IN.lt = 1; IN.lf = 1; } if (k('KeyE')) { IN.lt = 1; IN.rg = 1; }
+  if (k('ShiftLeft') || k('ShiftRight')) IN.rt = 1;
+  if (k('ArrowUp')) IN.ry = -1; if (k('ArrowDown')) IN.ry = 1;          // 어깨
+  if (k('KeyI')) IN.ly = -1; if (k('KeyK')) IN.ly = 1;                  // 엘보
+  if (k('ArrowLeft')) { IN.rb = 1; IN.rx = -1; } if (k('ArrowRight')) { IN.rb = 1; IN.rx = 1; } // 턴테이블
+  if (k('Space') || k('KeyZ')) IN.a = 1; if (k('KeyX')) IN.b = 1;
+  return IN;
+}
+function onKeyEdge(c) { if (c === 'KeyC') cycleCam(); if (c === 'KeyP') togglePause(); if (c === 'KeyR') resetRun(); if (c === 'KeyH') $('#help').classList.toggle('on'); }
+
+/* ---------------- 경기 상태 ---------------- */
+const G = { phase: 'idle', clock: CFG.time, t: 0, paused: false, msg: '', presses: 0, result: null, endAt: 0 };
+function banner(t, d = 1.6) { const el = $('#banner'); el.textContent = t; el.classList.add('show'); clearTimeout(banner.t); banner.t = setTimeout(() => el.classList.remove('show'), d * 1000); }
+function shuffle(a) { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
+function resetRun() {
+  if (G.phase === 'end' && MODE === 'match') return;
+  for (const b of BLOCKS) { scene.remove(b.mesh); world.removeBody(b.body); } BLOCKS.length = 0;
+  const cols = shuffle([].concat(...['R', 'G', 'B'].map(c => Array(CFG.block.perColor).fill(c))));
+  const n = Math.ceil(Math.sqrt(cols.length)), sp = 0.115;
+  cols.forEach((c, i) => { const ix = i % n, iz = Math.floor(i / n); makeBlock(c, CFG.center.x + (ix - (n - 1) / 2) * sp, CFG.center.z + (iz - (n - 1) / 2) * sp); });
+  Object.assign(R, { x: CFG.startMat.x, z: CFG.startMat.z, th: 0, vx: 0, vz: 0, w: 0, vxr: 0, vyr: 0, base: 0, sh: 70, el: 120, shF: 0, elF: 0, pump: false, held: null, vent: 0 });
+  for (const p of POLES) { setLamp(p, null); p.armed = true; }
+  G.phase = 'ready'; G.clock = SET.time; G.t = 0; G.result = null; G.presses = 0;
+  banner('출발 매트 뒤의 시작 기둥 버튼을\n흡착컵으로 눌러 타이머를 시작하세요', 3.5);
+}
+function togglePause() { if (G.phase === 'idle' || G.phase === 'end') return; G.paused = !G.paused; banner(G.paused ? '일시정지' : '재개', 0.8); }
+
+/* 기둥 버튼 누르기 */
+function pressPole(p) {
+  beep(1600, 0.06, 0.05);
+  if (p.kind === 'start') {
+    if (G.phase === 'ready') { G.phase = 'run'; setLamp(p, 'RUN'); banner('스타트!', 1); beep(880, 0.25, 0.06, 'sine'); return; }
+    if (G.phase === 'run') {
+      if (!onStartMat()) { banner('출발 구역에 로봇이 들어와야\n타이머를 멈출 수 있습니다', 1.6); return; }
+      setLamp(p, 'STOP'); finish('타이머 정지'); return;
+    }
+    return;
+  }
+  if (G.phase !== 'run') { banner('먼저 시작 기둥 버튼을 눌러 시작하세요', 1.4); return; }
+  const opts = ['R', 'G', 'B'].filter(c => c !== p.color);
+  setLamp(p, opts[Math.floor(Math.random() * opts.length)]); G.presses++;
+}
+function onStartMat() { const S = CFG.startMat; const pts = WHEELS.map(w => local2world(w.x, w.z)); return pts.some(([x, z]) => Math.abs(x - S.x) <= S.s / 2 && Math.abs(z - S.z) <= S.s / 2); }
+function local2world(lx, lz) { const c = Math.cos(R.th), s = Math.sin(R.th); return [R.x + lx * c + lz * s, R.z - lx * s + lz * c]; }
+
+/* ---------------- 점수 ---------------- */
+function scoreNow(final) {
+  const s = CFG.block.s, rows = [];
+  let total = 0, wrong = 0, inCenter = 0;
+  const allColors = new Set(CFG.mats.map(m => m.poleRef.color).filter(Boolean)).size === 3;
+  for (const b of BLOCKS) { const p = b.body.position; if (!b.held && Math.abs(p.x - CFG.center.x) <= CFG.center.s / 2 && Math.abs(p.z - CFG.center.z) <= CFG.center.s / 2) inCenter++; }
+  CFG.mats.forEach((m, i) => {
+    const col = m.poleRef.color; let pts = 0, n = 0, top = 0;
+    for (const b of BLOCKS) {
+      if (b.held) continue; const p = b.body.position;
+      if (Math.abs(p.x - m.x) > m.s / 2 || Math.abs(p.z - m.z) > m.s / 2) continue;
+      if (b.body.velocity.length() > 0.08) continue;
+      const layer = Math.max(1, Math.round((p.y - s / 2) / s) + 1);
+      if (col && b.col === col) { const mult = CFG.score.mult[Math.min(layer, CFG.score.mult.length) - 1]; pts += CFG.score.base * layer * mult; n++; top = Math.max(top, layer); }
+      else wrong++;
+    }
+    total += pts; rows.push({ i, col, n, top, pts });
+  });
+  let timeBonus = 0, startBonus = 0;
+  if (final) {
+    if (G.stopped && inCenter === 0 && wrong === 0 && allColors) timeBonus = Math.floor(G.clock);
+    if (onStartMat()) startBonus = CFG.score.startBonus;
+  }
+  return { rows, total: Math.round(total + timeBonus + startBonus), blocks: Math.round(total), timeBonus, startBonus, wrong, inCenter, allColors };
+}
+function finish(why) {
+  if (G.phase === 'end') return;
+  G.stopped = why === '타이머 정지';
+  if (R.held) releaseBlock();
+  G.phase = 'end'; G.endWhy = why; G.endAt = G.t;
+  setTimeout(() => {
+    const sc = scoreNow(true); G.result = sc;
+    const win = sc.total >= TARGET;
+    showEnd(sc, win);
+    post({ type: 'wrlsim:result', result: TARGET ? (win ? 'win' : 'loss') : 'win', score: [sc.total, TARGET], detail: `미들봇 ${sc.total}점 (블록 ${sc.blocks} · 남은 시간 ${sc.timeBonus} · 출발 매트 ${sc.startBonus})${TARGET ? ' · 목표 ' + TARGET + '점' : ''}` });
+  }, 1200); // 블록이 멈출 때까지 잠시 기다린 뒤 채점
+  banner(why === '타이머 정지' ? '타이머 정지!' : '시간 종료', 1.6);
+}
+function showEnd(sc, win) {
+  const ov = $('#overlay'); ov.style.display = 'flex';
+  $('#startCard').innerHTML = `<div id="endCard"><h1>${TARGET ? (win ? '목표 달성!' : '목표 미달') : '경기 종료'} — ${sc.total}점</h1>
+    <table>${sc.rows.map(r => `<tr><td>노란 매트 ${r.i + 1} · 신호등 ${r.col ? CNAME[r.col] : '꺼짐'}</td><td>맞는 블록 ${r.n}개 · 최고 ${r.top}층</td><td>${Math.round(r.pts)}</td></tr>`).join('')}
+    <tr><td>남은 시간 점수</td><td>${G.stopped ? (sc.timeBonus ? '조건 충족' : `조건 미충족${sc.inCenter ? ' · 가운데 블록 ' + sc.inCenter + '개' : ''}${sc.wrong ? ' · 색 틀린 블록 ' + sc.wrong + '개' : ''}${!sc.allColors ? ' · 세 색이 다 나오지 않음' : ''}`) : '시간 종료'}</td><td>${sc.timeBonus}</td></tr>
+    <tr><td>출발 매트 복귀</td><td></td><td>${sc.startBonus}</td></tr>
+    <tr><td><b>합계</b></td><td>${TARGET ? '목표 ' + TARGET + '점' : ''}</td><td><b>${sc.total}</b></td></tr></table>
+    <p class="note">${EMBED ? '잠시 뒤 결과 화면으로 넘어갑니다.' : ''}</p>
+    ${EMBED ? '' : '<div style="display:flex;gap:8px;margin-top:10px"><button class="btn pri" id="again">다시 하기</button></div>'}</div>`;
+  $('#again')?.addEventListener('click', () => { ov.style.display = 'none'; G.phase = 'idle'; resetRun(); view.focus(); });
+}
+
+/* ---------------- 흡착 ---------------- */
+function tryPick() {
+  if (R.held) return;
+  const t = tipWorld(); const s = CFG.block.s;
+  let best = null, bd = 1e9;
+  for (const b of BLOCKS) {
+    const p = b.body.position; const up = new CANNON.Vec3(); b.body.quaternion.vmult(new CANNON.Vec3(0, 1, 0), up);
+    // 정육면체라 위를 보는 면이 어느 면이든 그 면 가운데를 찾는다
+    const topY = p.y + s / 2 * Math.max(Math.abs(up.y), 0.7);
+    const dh = Math.hypot(t.x - p.x, t.z - p.z), dv = t.y - topY;
+    if (dh < 0.03 && dv > -0.012 && dv < 0.02 && dh + Math.abs(dv) < bd) { best = b; bd = dh + Math.abs(dv); }
+  }
+  if (!best) return;
+  R.held = best; best.held = true; best.body.type = CANNON.Body.KINEMATIC; best.body.updateMassProperties(); best.body.velocity.setZero(); best.body.angularVelocity.setZero();
+  const q = new CANNON.Quaternion(); q.setFromEuler(0, -(R.th + R.base), 0); const inv = q.inverse(); best.relQ = inv.mult(best.body.quaternion);
+  beep(500, 0.12, 0.05, 'sawtooth');
+}
+function releaseBlock() {
+  const b = R.held; if (!b) return; R.held = null; b.held = false;
+  b.body.type = CANNON.Body.DYNAMIC; b.body.mass = CFG.block.mass; b.body.updateMassProperties();
+  b.body.velocity.set(0, -0.02, 0); b.body.angularVelocity.setZero(); b.body.wakeUp();
+  beep(300, 0.1, 0.04, 'triangle');
+}
+
+/* ---------------- 한 스텝 ---------------- */
+const DT = 1 / 240;
+let tickAcc = 0, lastIN = null;
+function step(dt) {
+  const IN = lastIN; G.t += dt;
+  if (G.phase === 'run') { G.clock -= dt; if (G.clock <= 0) { G.clock = 0; finish('시간 종료'); } }
+  const live = G.phase === 'ready' || G.phase === 'run';
+  // 주행 (메카넘): 방향키 50% · RT로 100% · LT+←→ 평행이동 · 대각선 주행 · 놓으면 능동 제동
+  let fx = 0, fy = 0, wz = 0;
+  if (live && IN) {
+    const power = FW.BASE_SPEED + (FW.MAX_SPEED - FW.BASE_SPEED) * clamp(IN.rt, 0, 1); R.power = power;
+    const fwd = (IN.up ? 1 : 0) - (IN.dn ? 1 : 0), side = (IN.rg ? 1 : 0) - (IN.lf ? 1 : 0);
+    if (IN.lt > 0.5 && side && !fwd) fy = side;                    // 좌우 평행이동
+    else if (fwd && side) { fx = fwd * 0.7071; fy = side * 0.7071; } // 대각선 주행
+    else if (fwd) fx = fwd;
+    else if (side) wz = -side;                                       // 제자리 회전
+    fx *= power; fy *= power; wz *= power;
+  }
+  const acc = 6 * dt; // 모터 가감속 (능동 제동은 즉시에 가깝게)
+  const brake = !fx && !fy && !wz;
+  R.vxr = brake ? 0 : approach(R.vxr, fx * ROBOT.vmax, acc * ROBOT.vmax);
+  R.vyr = brake ? 0 : approach(R.vyr, fy * ROBOT.vmax * 0.85, acc * ROBOT.vmax);
+  R.w = brake ? 0 : approach(R.w, wz * ROBOT.wmax, acc * ROBOT.wmax * 1.5);
+  const c = Math.cos(R.th), s = Math.sin(R.th);
+  // 로봇 좌표: x = 앞, y = 오른쪽 → 월드 (x, z), z 아래쪽 = 화면 아래
+  let nx = R.x + (R.vxr * c + R.vyr * s) * dt, nz = R.z + (-R.vxr * s + R.vyr * c) * dt, nth = R.th + R.w * dt;
+  // 벽 · 기둥과 충돌 (원으로 근사)
+  nx = clamp(nx, -F.L / 2 + ROBOT_R - 0.02, F.L / 2 - ROBOT_R + 0.02); nz = clamp(nz, -F.W / 2 + ROBOT_R - 0.02, F.W / 2 - ROBOT_R + 0.02);
+  for (const p of POLES) { const hw = CFG.pole.w / 2; const qx = clamp(nx, p.x - hw, p.x + hw), qz = clamp(nz, p.z - hw, p.z + hw); const d = Math.hypot(nx - qx, nz - qz); if (d < ROBOT_R - 0.01) { const k = (ROBOT_R - 0.01 - d) / (d || 1); nx += (nx - qx) * k; nz += (nz - qz) * k; } }
+  const vx = (nx - R.x) / dt, vz = (nz - R.z) / dt, w = (nth - R.th) / dt;
+  R.x = nx; R.z = nz; R.th = nth;
+  chassisBody.position.set(R.x, 0, R.z); chassisBody.quaternion.setFromEuler(0, R.th, 0); chassisBody.velocity.set(vx, 0, vz); chassisBody.angularVelocity.set(0, w, 0);
+  for (const wh of WHEELS) wh.spin.rotation.z -= (R.vxr - wh.x * 0) / 0.04 * dt;
+
+  // 로봇팔 (펌웨어 틱 20 ms마다): 입력 저역통과 → 리밋 근처 감속
+  tickAcc += dt;
+  while (tickAcc >= TICK) {
+    tickAcc -= TICK;
+    if (!live || !IN) break;
+    if (IN.rb) { R.base += clamp(IN.rx, -1, 1) * THREE.MathUtils.degToRad(ROBOT.base_dps) * TICK; R.shF *= 0.5; R.elF *= 0.5; }
+    else {
+      R.shF += (-IN.ry - R.shF) * FW.ARM_FILT;
+      const ely = SET.elbowInv ? IN.ly : -IN.ly; R.elF += (ely - R.elF) * FW.ARM_FILT;
+      const ease = (v, d, lo, hi) => { const room = d > 0 ? hi - v : v - lo; return d * clamp(room / FW.LIMIT_EASE, 0.15, 1); };
+      const nsh = clamp(R.sh + ease(R.sh, R.shF * FW.ARM_STEP, FW.SH_MIN, FW.SH_MAX), FW.SH_MIN, FW.SH_MAX);
+      const nel = clamp(R.el + ease(R.el, R.elF * FW.ARM_STEP, FW.EL_MIN, FW.EL_MAX), FW.EL_MIN, FW.EL_MAX);
+      // 흡착컵이 바닥·기둥·블록 위를 뚫고 내려가지 않게
+      const trial = tipWorld({ ...R, sh: nsh, el: nel });
+      let floorY = ARM.tipR * 0.3;
+      if (R.held) floorY = CFG.block.s; // 들고 있는 블록 바닥이 땅 위
+      for (const p of POLES) if (Math.abs(trial.x - p.x) < CFG.pole.w / 2 + 0.01 && Math.abs(trial.z - p.z) < CFG.pole.w / 2 + 0.01) floorY = Math.max(floorY, CFG.pole.h + (R.held ? CFG.block.s : 0.004));
+      if (trial.y >= floorY - 1e-4 || trial.y >= tipWorld().y) { R.sh = nsh; R.el = nel; }
+    }
+    // 흡착: A = 펌프 ON + 밸브 닫힘 / B = 펌프 OFF + 밸브 배출(350 ms)
+    if (IN.a && !R.pump) { R.pump = true; R.vent = 0; }
+    if (IN.b && R.pump) { R.pump = false; R.vent = FW.VENT_MS / 1000; releaseBlock(); }
+  }
+  if (R.vent > 0) R.vent -= dt;
+  if (R.pump && !R.held && live) tryPick();
+
+  // 흡착컵 끝 · 들고 있는 블록
+  const t = tipWorld();
+  const pv = tipBody.position.clone(); tipBody.position.set(t.x, t.y + ARM.tipR * 0.6, t.z); tipBody.velocity.set((tipBody.position.x - pv.x) / dt, (tipBody.position.y - pv.y) / dt, (tipBody.position.z - pv.z) / dt);
+  tipBody.collisionResponse = !R.held;
+  if (R.held) {
+    const b = R.held.body, op = b.position.clone();
+    b.position.set(t.x, t.y - CFG.block.s / 2, t.z);
+    const q = new CANNON.Quaternion(); q.setFromEuler(0, R.th + R.base, 0); b.quaternion.copy(q.mult(R.held.relQ));
+    b.velocity.set((b.position.x - op.x) / dt, (b.position.y - op.y) / dt, (b.position.z - op.z) / dt);
+  }
+  // 기둥 버튼
+  for (const p of POLES) {
+    const near = Math.hypot(t.x - p.x, t.z - p.z) < 0.035;
+    if (p.armed && near && t.y < CFG.pole.h + 0.016 && !R.held) { p.armed = false; pressPole(p); }
+    if (!p.armed && (!near || t.y > CFG.pole.h + 0.035)) p.armed = true;
+  }
+  world.step(dt);
+}
+const approach = (v, t, d) => v < t ? Math.min(t, v + d) : Math.max(t, v - d);
+
+/* ---------------- 화면 동기화 · 카메라 ---------------- */
+const CAMS = ['chase', 'top', 'side', 'driver', 'free'];
+const CAMNAME = { chase: '로봇 뒤 추적', top: '탑뷰 (전체)', side: '중계 (옆)', driver: '조종석 (출발 구역 뒤)', free: '자유 (마우스)' };
+let camMode = store.get('cam', 'driver'), camSnap = true;
+function cycleCam() { setCam(CAMS[(CAMS.indexOf(camMode) + 1) % CAMS.length]); }
+function setCam(m) { camMode = m; store.set('cam', m); controls.enabled = m === 'free'; if (m === 'free') { controls.target.set(R.x, 0.1, R.z); } camSnap = true; $('#cam').textContent = '📷 ' + CAMNAME[m] + ' (C / Y)'; }
+const camPos = new THREE.Vector3(), camTgt = new THREE.Vector3();
+function updateCamera(dt) {
+  if (camMode === 'free') { controls.update(); return; }
+  const T = new THREE.Vector3(), Pp = new THREE.Vector3();
+  if (camMode === 'chase') { T.set(R.x + Math.cos(R.th) * 0.25, 0.08, R.z - Math.sin(R.th) * 0.25); Pp.set(R.x - Math.cos(R.th) * 0.55, 0.78, R.z + Math.sin(R.th) * 0.55); }
+  else if (camMode === 'top') { T.set(0, 0, 0.02); Pp.set(0, 3.25, 0.35); }
+  else if (camMode === 'side') { T.set(0, 0, 0); Pp.set(0, 1.55, 2.25); }
+  else { T.set(0.15, 0, 0); Pp.set(-2.25, 1.35, 0); }
+  const k = camSnap ? 1 : 1 - Math.exp(-dt * 5); camSnap = false;
+  camPos.lerp(Pp, k); camTgt.lerp(T, k); camera.position.copy(camPos); camera.lookAt(camTgt);
+}
+const tmpQ = new THREE.Quaternion();
+function syncVisuals() {
+  robot.position.set(R.x, 0, R.z); robot.rotation.y = R.th;
+  turn.rotation.y = R.base;
+  upper.rotation.z = phi1(R.sh); fore.rotation.z = phi2(R.el) - phi1(R.sh);
+  const t = tipWorld(); wrist.position.set(t.x, t.y + ARM.drop, t.z); wrist.rotation.y = R.th + R.base;
+  cup.material.color.setHex(R.held ? 0x9be7ff : R.pump ? 0xd6f5ff : 0xf2f2f2);
+  for (const b of BLOCKS) { b.mesh.position.copy(b.body.position); b.mesh.quaternion.copy(b.body.quaternion); }
+  // 흡착 호스 (몸통 → 팔 위 → 컵)
+  const s0 = local2world(-0.07, 0.07);
+  const pts = [new THREE.Vector3(s0[0], 0.17, s0[1]), new THREE.Vector3(R.x, 0.33, R.z), new THREE.Vector3((R.x + t.x) / 2, Math.max(0.3, t.y + 0.2), (R.z + t.z) / 2), new THREE.Vector3(t.x, t.y + ARM.drop + 0.02, t.z)];
+  tube.geometry.dispose(); tube.geometry = new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 24, 0.0035, 6);
+  for (const p of POLES) p.btn.position.y = CFG.pole.h + (p.armed ? 0.006 : 0.002);
+}
+
+/* ---------------- HUD ---------------- */
+const fmt = s => { s = Math.max(0, Math.ceil(s)); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); };
+let hudT = 0;
+function hud(dt, IN) {
+  hudT += dt; if (hudT < 0.1) return; hudT = 0;
+  $('#clock').firstChild.nodeValue = fmt(G.clock);
+  $('#phase').textContent = { idle: '대기', ready: '시작 버튼 대기', run: '경기 중', end: '종료' }[G.phase] + (G.paused ? ' · 일시정지' : '');
+  const sc = scoreNow(false);
+  $('#score').firstChild.nodeValue = sc.blocks + (TARGET ? ' / ' + TARGET : '');
+  const pd = CFG.mats.map((m, i) => { const c = m.poleRef.color; return `<div class="pole"><i style="background:${c ? '#' + COLORS[c].toString(16).padStart(6, '0') : '#222'}"></i>${i + 1}번 ${c ? CNAME[c] : '꺼짐'}</div>`; }).join('');
+  const toStart = Math.hypot(R.x - CFG.startMat.x, R.z - CFG.startMat.z);
+  $('#side').innerHTML = `<h4>신호등 기둥 (흡착컵으로 버튼 누르기)</h4><div class="poles">${pd}</div>
+    <div class="row"><span>흡착</span><b>${R.held ? '블록 잡음 (' + CNAME[R.held.col] + ')' : R.pump ? '펌프 ON — 블록 위에 대세요' : R.vent > 0 ? '밸브 배출' : '꺼짐'}</b></div>
+    <div class="row"><span>주행 파워</span><b>${Math.round(R.power * 100)}%</b></div>
+    <div class="row"><span>어깨 SH · 엘보 EL</span><b>${R.sh.toFixed(0)}° · ${R.el.toFixed(0)}°</b></div>
+    <div class="row"><span>턴테이블</span><b>${(THREE.MathUtils.radToDeg(R.base) % 360).toFixed(0)}°</b></div>
+    <div class="row"><span>흡착컵 높이</span><b>${(tipWorld().y * 100).toFixed(1)} cm</b></div>
+    ${sc.rows.map(r => `<div class="row"><span>매트 ${r.i + 1}</span><b>${r.n}개 · ${r.top}층 · ${Math.round(r.pts)}점</b></div>`).join('')}
+    <div class="msg">${G.phase === 'ready' ? '▶ 시작 기둥(출발 매트 뒤) 버튼을 누르세요' : G.phase === 'run' && sc.allColors && sc.inCenter === 0 && sc.wrong === 0 && toStart < 0.6 ? '■ 출발 매트에서 시작 기둥을 다시 누르면 시간 정지' : !sc.allColors && G.phase === 'run' ? '신호등 세 색(빨강·초록·파랑)이 모두 나오게 하세요' : ''}</div>`;
+  const pad = $('#pad'); pad.classList.toggle('on', !!(IN && IN.pad)); $('#padTxt').textContent = IN && IN.pad ? '🎮 엑스박스 컨트롤러 연결됨' : '컨트롤러 없음 — 키보드 사용 (버튼을 한 번 누르면 연결)';
+}
+
+/* ---------------- 시작 카드 · 도움말 ---------------- */
+const KEYROWS = [
+  ['방향키 ↑ ↓', '전진 / 후진 (기본 50%)', 'W / S'], ['방향키 ← →', '제자리 회전', 'A / D'], ['LT + 방향키 ← →', '좌우 평행이동', 'Q / E'],
+  ['방향키 대각선', '대각선 주행', 'W·S + Q·E'], ['RT', '파워 50% → 100%', 'Shift'], ['방향키 놓기', '즉시 정지 (능동 제동)', ''],
+  ['RB + 오른쪽 스틱 ← →', '턴테이블 회전 (어깨·엘보 정지)', '← →'], ['오른쪽 스틱 ↕', '어깨 올림 / 내림', '↑ ↓'], ['왼쪽 스틱 ↕', '엘보 뻗기 / 접기', 'I / K'],
+  ['A', '집기 (펌프 ON + 밸브 닫힘)', 'Space · Z'], ['B', '놓기 (펌프 OFF + 밸브 배출)', 'X'], ['Y', '카메라 전환', 'C'], ['Menu · View', '일시정지 · 다시 배치(연습)', 'P · R'],
+];
+const keyTable = `<table>${KEYROWS.map(([a, b, k]) => `<tr><td>${a}</td><td>${b}${k ? ` <span style="color:#8d93b5">[${k}]</span>` : ''}</td></tr>`).join('')}</table>`;
+$('#help').innerHTML = `<h4>🎮 엑스박스 컨트롤러 [키보드]</h4>${keyTable}
+  <h4>경기 진행</h4><p style="margin:2px 0;color:#c9cde6">① 시작 기둥 버튼(출발 매트 뒤)을 흡착컵으로 눌러 시작 → ② 신호등 기둥 버튼을 눌러 세 색이 모두 나오게 → ③ 블록을 옆 신호등과 같은 색 노란 매트에 놓거나 쌓기 → ④ 출발 매트로 돌아와 시작 기둥을 다시 누르면 시간 정지</p>
+  <h4>점수 (가정 — 공식 점수표 확인 후 조정)</h4><p style="margin:2px 0;color:#c9cde6">블록 = ${CFG.score.base}점 × 층수 × 배수(1층 ×${CFG.score.mult[0]} · 2층 ×${CFG.score.mult[1]} · 3층 ×${CFG.score.mult[2]} · 4층 ×${CFG.score.mult[3]}) · 가운데 블록이 없고 모두 색이 맞고 세 색이 나오면 남은 초 가산 · 출발 매트에서 끝내면 +${CFG.score.startBonus}</p>
+  <label style="display:flex;gap:6px;margin-top:8px"><input type="checkbox" id="elInv" ${SET.elbowInv ? 'checked' : ''}> 엘보 스틱 방향 반대로</label>`;
+$('#elInv').addEventListener('change', e => { SET.elbowInv = e.target.checked; store.set('elbowInv', SET.elbowInv); });
+$('#helpBtn').addEventListener('click', () => $('#help').classList.toggle('on'));
+$('#startCard').innerHTML = `<h1>${esc(P.get('title') || '미들봇 — 연습')}</h1>
+  <p>메카넘 4WD + EEZYbotARM(흡착) 로봇을 엑스박스 컨트롤러로 조종해 블록을 신호등 색에 맞는 노란 매트에 쌓습니다.${TARGET ? ` <b style="color:#ffd25a">목표 ${TARGET}점</b>${P.get('opp') ? ` (상대 팀 ${esc(P.get('opp'))}의 기록)` : ''}` : ''}</p>
+  <div class="cols"><div>${keyTable}</div><div>
+  <p class="note">경기 진행: 시작 기둥 버튼 → 신호등 세 색 맞추기 → 블록 옮겨 쌓기 → 출발 매트로 돌아와 시작 기둥 다시 누르기(남은 시간 점수).</p>
+  <p class="note">컨트롤러는 블루투스로 페어링한 뒤 아무 버튼이나 한 번 누르면 연결됩니다. 조작법은 오른쪽 위 [조작법 (H)].</p>
+  ${MODE === 'match' ? '<p class="note">대진표 경기: 3분 한 번 도전으로 기록을 냅니다.</p>' : `<label>경기 시간 <select id="tsel">${[120, 180, 240, 300].map(v => `<option value="${v}" ${v === SET.time ? 'selected' : ''}>${v / 60}분</option>`).join('')}</select></label>`}
+  </div></div>
+  <div style="display:flex;gap:8px;margin-top:12px"><button class="btn pri" id="startBtn">경기장으로</button></div>`;
+$('#tsel')?.addEventListener('change', e => { SET.time = +e.target.value; store.set('time', SET.time); });
+$('#startBtn').addEventListener('click', () => { $('#overlay').style.display = 'none'; beep(1200, 0.05, 0.02); resetRun(); view.focus(); });
+$('#exit').addEventListener('click', () => post({ type: 'wrlsim:exit' }));
+if (!EMBED) $('#exit').style.display = 'none';
+renderer.domElement.addEventListener('pointerdown', () => view.focus());
+
+/* ---------------- 루프 ---------------- */
+let last = performance.now(), acc = 0;
+function frame(now) {
+  const dt = Math.min(0.05, (now - last) / 1000); last = now;
+  const IN = readInput(); lastIN = IN;
+  if (!G.paused && G.phase !== 'idle') { acc += dt; let n = 0; while (acc >= DT && n < 30) { step(DT); acc -= DT; n++; } if (n >= 30) acc = 0; }
+  syncVisuals(); updateCamera(dt); renderer.render(scene, camera); hud(dt, IN);
+  requestAnimationFrame(frame);
+}
+// 시작 전에도 경기장을 보여 준다
+(function initScene() { const cols = shuffle([].concat(...['R', 'G', 'B'].map(c => Array(CFG.block.perColor).fill(c)))); const n = 3, sp = 0.115; cols.forEach((c, i) => makeBlock(c, (i % n - 1) * sp, (Math.floor(i / n) - 1) * sp)); Object.assign(R, { x: CFG.startMat.x, z: CFG.startMat.z, sh: 70, el: 120 }); })();
+setCam(camMode); resize(); requestAnimationFrame(frame);
+window.__mb = { R, G, BLOCKS, POLES, CFG, tipWorld, pressPole, step, resetRun, finish, scoreNow, world, set lastIN(v) { lastIN = v; } };
+post({ type: 'wrlsim:ready' });
+</script>
+</body>
+</html>
