@@ -167,6 +167,13 @@
     W,
     async setup(task, opts = {}) {
       W.task = task; W.level = clamp(+opts.level || 0, 0, 1);
+      // 대회 시뮬레이터에서는 시뮬레이션 안에서만 진행: 실제 허브 연결 · 다운로드 · 허브에서 실행, 바깥 편집기 링크는 숨김
+      if (!document.getElementById('wrlHideHub')) {
+        const st = document.createElement('style'); st.id = 'wrlHideHub';
+        st.textContent = '#pbBox,#wbToEditor,#simExtLink{display:none!important}';
+        document.head.appendChild(st);
+      }
+      for (const id of ['pbConn', 'pbRun', 'pbUp']) { const b = document.getElementById(id); if (b) b.disabled = true; }
       try { S.enterSim && S.enterSim(); } catch (e) {}
       const mb = document.querySelector('#modeSim'); if (mb && mb.getAttribute('aria-pressed') !== 'true') mb.click();
       await new Promise(r => setTimeout(r, 400));

@@ -85,6 +85,7 @@ const wrapA = a => { while (a > Math.PI) a -= 2 * Math.PI; while (a < -Math.PI) 
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
 const D2R = Math.PI / 180;
 
+const SET = { autoUp: (() => { try { return localStorage.getItem('wrlsim.hb.autoUp') !== '0'; } catch (e) { return true; } })() };
 const RULE = { arena: 1.20, platH: 0.10, time: 180, ot: 60, tko: 5, count: 10, idle: 5, startGap: 0.30 };
 
 /* ---------------- 모션 ---------------- */
@@ -218,7 +219,17 @@ function buildRobot(teamColor) {
     const h = new THREE.Object3D(); h.position.copy(dir.multiplyScalar(ARM_L)); B[side + '_arm'].add(h); M[side + 'h'] = h;
     const toe = new THREE.Object3D(); toe.position.set(0.05, 0, -0.028); B[side + '_foot'].add(toe); M[side + 'f'] = toe;
     const so = new THREE.Object3D(); so.position.set(0, 0, -CAD.dims.ankleRoll); B[side + '_foot'].add(so); M[side + 's'] = so;
+    const L = CAD.dims.sole[0] / 2;
+    for (const [k, x] of [['t', L], ['e', -L]]) { const o = new THREE.Object3D(); o.position.set(x, 0, -CAD.dims.ankleRoll); B[side + '_foot'].add(o); M[side + k] = o; } // 발끝 · 뒤꿈치
   }
+  // 넘어지고 일어설 때 바닥에 닿을 수 있는 곳: 손 · 무릎 · 어깨 · 머리 · 몸통 모서리 · 배터리
+  const C = [M.Rh, M.Lh];
+  const add = (body, x, y, z) => { const o = new THREE.Object3D(); o.position.set(x, y, z); B[body].add(o); C.push(o); };
+  for (const sd of ['R', 'L']) { add(sd + '_knee_frame', 0.03, 0, -0.008); add(sd + '_knee_frame', -0.012, 0, -0.008); add(sd + '_shoulder', 0, 0, 0.02); add(sd + '_hip', 0.022, 0, 0); add(sd + '_hip', -0.022, 0, 0); }
+  const bx = CAD.dims.box; for (const x of [bx[0] / 2 + 0.006, -bx[0] / 2 - 0.006]) for (const z of [bx[2] / 2 + 0.05, -bx[2] / 2]) add('torso', x, 0, z);
+  add('torso', -0.06, 0, -0.082); add('torso', 0.03, 0, bx[2] / 2 + 0.046); add('torso', -0.03, 0, bx[2] / 2 + 0.046);
+  M.contacts = C;
+  const MASS = Object.entries(CAD.bodies).map(([n, b]) => [B[n], b.mass]).filter(x => x[0]); M.mass = MASS;
   // 팀 표시 (로봇 모습은 그대로 두고 발밑 고리 · 머리 위 표식만)
   const ring = new THREE.Mesh(new THREE.RingGeometry(0.075, 0.09, 40), new THREE.MeshBasicMaterial({ color: teamColor, transparent: true, opacity: 0.85 }));
   ring.rotation.x = -Math.PI / 2; ring.position.y = 0.002; root.add(ring);
@@ -243,7 +254,7 @@ class Bot {
     this.reset(team ? RULE.startGap / 2 : -RULE.startGap / 2, 0, team ? Math.PI : 0);
   }
   reset(x, z, th) {
-    Object.assign(this, { x, z, th, pose: Array(12).fill(0), mot: null, queue: [], walk: null, fallen: null, fallT: 0, pitch: 0, out: false, kb: [0, 0, 0], hitDone: false, idleT: 0, critUsed: this.critUsed || false, getup: false });
+    Object.assign(this, { x, z, th, pose: Array(12).fill(0), mot: null, queue: [], walk: null, fallen: null, fallT: 0, tiltA: 0, dt: 1 / 60, out: false, kb: [0, 0, 0], hitDone: false, idleT: 0, critUsed: this.critUsed || false, getup: false });
     this.play(101);
   }
   play(idx, opts = {}) {
@@ -258,7 +269,8 @@ class Bot {
   step(dt) {
     // 넉백
     if (this.kb[2] > 0) { const k = Math.min(dt, this.kb[2]); this.x += this.kb[0] * k; this.z += this.kb[1] * k; this.kb[2] -= dt; }
-    if (this.fallen && !this.getup) { this.fallT += dt; this.pitch = Math.min(1, this.pitch + dt * 3.2); return; }
+    this.dt = dt;
+    if (this.fallen && !this.getup) { this.fallT += dt; this.pose = this.pose.map(v => v * (1 - Math.min(1, dt * 1.5))); return; } // 넘어진 뒤 힘이 빠짐
     const m = this.mot; if (!m) return;
     m.t += dt;
     this.pose = poseAt(m.tl, m.t);
@@ -266,10 +278,9 @@ class Bot {
       const f = this.fwd(), l = this.left();
       this.x += (f[0] * mv[0] + l[0] * mv[1]) * dt; this.z += (f[1] * mv[0] + l[1] * mv[1]) * dt; this.th = wrapA(this.th + mv[2] * dt);
     }
-    if (this.getup) this.pitch = Math.max(0, 1 - this.progress / 0.7);
     if (m.t >= m.tl.dur) {
       const was = m; this.mot = null;
-      if (this.getup) { this.getup = false; this.fallen = null; this.pitch = 0; }
+      if (this.getup) { this.getup = false; this.fallen = null; }
       if (was.then) was.then();
       else if (!this.mot && was.idx !== 101 && !MOVE[was.idx]) this.play(101);
     }
@@ -287,8 +298,8 @@ class Bot {
   repeatMove(idx) { if (this.busy || this.fallen || this.walk) return; if (this.mot && this.mot.idx === idx && this.mot.t < this.mot.tl.dur * 0.85) return; if (this.mot && this.mot.kind === 'move' && this.mot.idx !== idx && this.mot.t < this.mot.tl.dur * 0.6) return; this.play(idx); }
   attack(idx) { if (this.fallen || (this.busy && this.mot.kind !== 'block')) return false; this.walk = null; return this.play(idx, { kind: 'atk' }); }
   block(idx) { if (this.fallen || this.busy) return; this.walk = null; this.play(idx, { kind: 'block' }); }
-  standUp() { if (!this.fallen || this.getup) return; this.getup = true; this.pose = Array(12).fill(0); this.play(this.fallen.dir > 0 ? 105 : 106, { kind: 'getup' }); }
-  knockDown(dir) { if (this.fallen) return; this.walk = null; this.mot = null; this.fallen = { dir }; this.fallT = 0; this.pitch = 0; this.getup = false; }
+  standUp() { if (!this.fallen || this.getup) return; this.getup = true; this.play(this.fallen.dir > 0 ? 105 : 106, { kind: 'getup' }); } // 앞으로 넘어지면 105, 뒤로 넘어지면 106
+  knockDown(dir, slip = false) { if (this.fallen) return; this.walk = null; this.mot = null; this.fallen = { dir, slip }; this.fallT = 0; this.getup = false; }
   blocking() { const m = this.mot; if (!m || m.kind !== 'block') return false; const p = this.progress, w = BLOCK[m.idx]; return p > w[0] && p < w[1]; }
   stability() {
     if (this.fallen) return 0;
@@ -310,9 +321,30 @@ class Bot {
     r.body.position.y = 0; r.tilt.rotation.set(0, 0, 0); r.root.updateMatrixWorld(true);
     const v = new THREE.Vector3(); let minY = 1e9; for (const s of ['R', 'L']) { r.M[s + 's'].getWorldPosition(v); minY = Math.min(minY, v.y - r.root.position.y); }
     r.body.position.y = -minY;
-    // 넘어짐: 앞(+1)이면 앞으로, 뒤(−1)면 뒤로 눕힘 (발 쪽 축)
-    const dir = this.fallen ? this.fallen.dir : 0; const ease = t => t * t * (3 - 2 * t);
-    r.tilt.rotation.z = -dir * ease(this.pitch) * (Math.PI / 2 - 0.12);
+    // 기울기: 서 있는 자세(기울기 0)에서 무게중심 · 발끝/뒤꿈치 · 바닥에 닿을 곳을 계산
+    //   넘어져 있으면 몸은 가장 먼저 바닥에 닿는 곳(손 · 무릎 · 머리 · 몸통)에 기대어 눕고,
+    //   일어서기 모션(105 · 106)이 팔로 짚고 다리를 모으면 그만큼 몸이 세워집니다. 거의 섰을 때 무게중심이 발 위에 오면 똑바로 섭니다.
+    r.root.updateMatrixWorld(true);
+    const inv = new THREE.Matrix4().copy(r.root.matrixWorld).invert(), loc = o => o.getWorldPosition(v).applyMatrix4(inv).clone();
+    let toe = -1, heel = 1; for (const sd of ['R', 'L']) { toe = Math.max(toe, loc(r.M[sd + 't']).x); heel = Math.min(heel, loc(r.M[sd + 'e']).x); }
+    let mx = 0, mw = 0; for (const [o, w] of r.M.mass) { mx += loc(o).x * w; mw += w; } mx /= mw;
+    let tf = Math.PI / 2 - 0.04, tb = Math.PI / 2 - 0.04;
+    for (const o of r.M.contacts) { const p = loc(o), y = Math.max(0.004, p.y); if (p.x - toe > 0.004) tf = Math.min(tf, Math.atan2(y, p.x - toe)); if (heel - p.x > 0.004) tb = Math.min(tb, Math.atan2(y, heel - p.x)); }
+    let target;
+    if (this.fallen && !this.getup) target = this.fallen.dir > 0 ? tf : -tb;
+    else if (this.getup) {                             // 일어서는 중: 앞부분은 손·무릎 받침에 기대고, 다리를 모으는 뒷부분은 모션 진행만큼 세워짐
+      const p = this.progress, sm = (a, b, t) => { const k = clamp((t - a) / (b - a), 0, 1); return k * k * (3 - 2 * k); };
+      const env = (Math.PI / 2 - 0.04) * (1 - sm(0.12, 0.78, p));
+      target = this.fallen.dir > 0 ? Math.min(tf, env) : -Math.min(tb, env);
+    }
+    else if (this.tiltA > 0.3) target = tf;            // 앞으로 누워 있음: 받침(손·무릎)에 기댐
+    else if (this.tiltA < -0.3) target = -tb;          // 뒤로 누워 있음
+    else target = mx > toe ? tf : mx < heel ? -tb : 0;   // 거의 섬: 무게중심이 발 밖이면 그쪽으로 기움
+    const rate = Math.abs(target) > Math.abs(this.tiltA) ? 5 : 3.2; // 넘어질 때는 빠르게, 일어설 때는 천천히
+    const dA = clamp(target - this.tiltA, -rate * this.dt, rate * this.dt); this.tiltA += dA;
+    if (!this.fallen && Math.abs(this.tiltA) > 0.75) this.knockDown(Math.sign(this.tiltA), true); // 스스로 균형을 잃음 (슬립 다운)
+    const piv = this.tiltA >= 0 ? toe : heel;
+    r.tilt.position.set(piv, 0, 0); r.body.position.x = -piv; r.tilt.rotation.z = -this.tiltA;
     r.root.updateMatrixWorld(true);
     updatePivots(r);
     r.tag.visible = !this.fallen && !this.out; r.ring.visible = !this.out;
@@ -363,6 +395,7 @@ function control(b, IN) {
     if (atk) { b.attack(atk); continue; }
     if (e === 'BL') b.block(122); if (e === 'BR') b.block(123);
   }
+  if (b === me && SET.autoUp && b.fallen && !b.getup && b.fallT > 1.2) b.standUp(); // 자동 일어서기: 넘어지고 1.2초 뒤
   if (b.fallen || b.busy) return;
   const fast = IN.rt > 0.5, fwd = (IN.up ? 1 : 0) - (IN.dn ? 1 : 0), side = (IN.rg ? 1 : 0) - (IN.lf ? 1 : 0);
   if (fwd && !side) { b.walkCtl(fwd, fast); return; }
@@ -473,7 +506,7 @@ function ringCheck(b, dt) {
   const half = RULE.arena / 2;
   if (b.out) { b.outT = (b.outT || 0) + dt * 2.5; return; }
   let x = b.x, z = b.z;
-  if (b.fallen && b.pitch > 0.5) { const f = b.fwd(); x += f[0] * 0.18 * b.fallen.dir; z += f[1] * 0.18 * b.fallen.dir; } // 누운 몸의 가운데
+  if (Math.abs(b.tiltA) > 0.8) { const f = b.fwd(), d = Math.sign(b.tiltA); x += f[0] * 0.18 * d; z += f[1] * 0.18 * d; } // 누운 몸의 가운데
   if (Math.abs(b.x) > half || Math.abs(b.z) > half || (b.fallen && (Math.abs(x) > half + 0.05 || Math.abs(z) > half + 0.05))) {
     b.out = true; b.outT = 0; b.mot = null; b.walk = null;
     if (G.phase === 'play') { point(1 - b.team, 1, '링아웃'); G.ko = null; if (G.phase === 'play') { G.phase = 'restart'; G.restartT = 0; } }
@@ -481,13 +514,14 @@ function ringCheck(b, dt) {
 }
 
 /* ---------------- 카메라 ---------------- */
-const CAMS = ['side', 'behind', 'top', 'free'], CAMNAME = { side: '중계 (옆)', behind: '내 로봇 뒤', top: '탑뷰', free: '자유 (마우스)' };
-let camMode = 'side', camSnap = true; const camP = new THREE.Vector3(), camT = new THREE.Vector3();
+const CAMS = ['oblique', 'side', 'behind', 'top', 'free'], CAMNAME = { oblique: '비스듬히', side: '중계 (옆)', behind: '내 로봇 뒤', top: '탑뷰', free: '자유 (마우스)' };
+let camMode = 'oblique', camSnap = true; const camP = new THREE.Vector3(), camT = new THREE.Vector3();
 function cycleCam() { camMode = CAMS[(CAMS.indexOf(camMode) + 1) % CAMS.length]; controls.enabled = camMode === 'free'; camSnap = true; $('#cam').textContent = '📷 ' + CAMNAME[camMode] + ' (C · View)'; }
 function updateCam(dt) {
   if (camMode === 'free') { controls.update(); return; }
   const mx = (me.x + op.x) / 2, mz = (me.z + op.z) / 2, T = new THREE.Vector3(), Pp = new THREE.Vector3(), y0 = RULE.platH;
-  if (camMode === 'side') { T.set(mx * 0.6, y0 + 0.16, mz * 0.6); Pp.set(mx * 0.6, y0 + 0.62, 1.25 + mz * 0.3); }
+  if (camMode === 'oblique') { T.set(mx * 0.7, y0 + 0.14, mz * 0.7); Pp.set(mx * 0.7 + 0.62, y0 + 0.78, mz * 0.7 + 0.92); }
+  else if (camMode === 'side') { T.set(mx * 0.6, y0 + 0.16, mz * 0.6); Pp.set(mx * 0.6, y0 + 0.62, 1.25 + mz * 0.3); }
   else if (camMode === 'top') { T.set(0, y0, 0); Pp.set(0, 2.05, 0.25); }
   else { const f = me.fwd(); T.set(op.x, y0 + 0.17, op.z); Pp.set(me.x - f[0] * 0.55, y0 + 0.45, me.z - f[1] * 0.55); }
   const k = camSnap ? 1 : 1 - Math.exp(-dt * 4); camSnap = false; camP.lerp(Pp, k); camT.lerp(T, k); camera.position.copy(camP); camera.lookAt(camT);
@@ -532,12 +566,12 @@ function hud(IN) {
   $('#clock').textContent = fmt(G.clock);
   $('#per').textContent = { idle: '대기', count: '준비', play: G.ot ? '연장 (골든 다운)' : '정규 3분', restart: '재시작', end: '경기 종료' }[G.phase] || '';
   const ko = G.ko && G.ko.who.fallen && G.phase === 'play' ? Math.floor(G.ko.t) : 0;
-  const c = $('#count'); if (ko >= 1) { c.style.display = 'block'; c.innerHTML = `${ko}<small>${G.ko.who === me ? 'Y 버튼으로 일어서세요!' : '상대 다운'}</small>`; } else c.style.display = 'none';
+  const c = $('#count'); if (ko >= 1) { c.style.display = 'block'; c.innerHTML = `${ko}<small>${G.ko.who === me ? (SET.autoUp ? '일어서는 중…' : 'Y 버튼으로 일어서세요!') : '상대 다운'}</small>`; } else c.style.display = 'none';
   const st = b => b.fallen ? (b.getup ? '일어나는 중' : '다운') : b.out ? '링아웃' : b.mot ? (b.mot.kind === 'atk' ? '공격 · ' + ATK[b.mot.idx].name : b.mot.kind === 'block' ? '막기' : b.walk ? '걷기' : MOVE[b.mot.idx] ? '이동' : '서기') : '서기';
   $('#side').innerHTML = `<div class="row"><span>내 로봇 (파랑)</span><b>${st(me)}</b></div><div class="row"><span>상대 (빨강) · ${1 + Math.round(LEVEL * 4)}단계</span><b>${st(op)}</b></div>
     <div class="row"><span>거리</span><b>${(dist(me, op) * 100).toFixed(0)} cm</b></div>
     <div class="row"><span>크리티컬 어택</span><b>${me.critUsed ? '사용함' : '남음 (킥 다운 2점)'}</b></div>
-    <div class="msg">${me.fallen && !me.getup ? '⚠ 다운! Y 버튼(I 키)으로 일어서세요' : me.idleT > 3 ? '⚠ 5초 넘게 멈추면 스탠딩 다운' : ''}</div>`;
+    <div class="msg">${me.fallen && !me.getup ? (SET.autoUp ? '⚠ 다운! 곧 일어섭니다 (Y로 바로)' : '⚠ 다운! Y 버튼(I 키)으로 일어서세요') : me.idleT > 3 ? '⚠ 5초 넘게 멈추면 스탠딩 다운' : ''}</div>`;
   $('#pad').classList.toggle('on', IN.pad); $('#padTxt').textContent = IN.pad ? '🎮 엑스박스 컨트롤러 연결됨' : '컨트롤러 없음 — 키보드 사용 (버튼을 한 번 누르면 연결)';
 }
 
@@ -558,14 +592,16 @@ const KEYS = [
 const keyTable = `<table class="k">${KEYS.map(([a, b, k]) => `<tr><td>${a}</td><td>${b} <span style="color:#8d93b5">[${k}]</span></td></tr>`).join('')}</table>`;
 $('#help').innerHTML = `<b>🎮 엑스박스 컨트롤러 ↔ MAX-E1 모션</b> [키보드]${keyTable}
   <p style="color:#c9cde6;margin:8px 0 0">규정: 3분 · 다운 1점(킥으로 넘어뜨리면 경기당 한 번 크리티컬 2점) · 링아웃·5초 정지 1점 · 5다운 TKO · 다운 뒤 10카운트 안에 못 일어서면 KO · 동점이면 1분 골든 다운(대진표)</p>
+  <label style="display:flex;gap:6px;margin-top:8px;align-items:center"><input type="checkbox" id="autoUp" ${SET.autoUp ? 'checked' : ''}> 넘어지면 자동으로 일어서기 (CM-550 예제 태스크처럼 1.2초 뒤) — 끄면 Y로 직접</label>
   <p style="color:#8d93b5;margin:6px 0 0">모션 데이터: ROBOTIS ENGINEER Kit 1 MAX-E1 예제 모션 © ROBOTIS · 몸체 치수·관절 방향: Dynamic-Makers</p>`;
 $('#helpBtn').addEventListener('click', () => $('#help').classList.toggle('on'));
+$('#autoUp').addEventListener('change', e => { SET.autoUp = e.target.checked; try { localStorage.setItem('wrlsim.hb.autoUp', SET.autoUp ? '1' : '0'); } catch (_) {} });
 $('#card').innerHTML = `<h1>${esc(P.get('title') || '휴머노이드 배틀 — 연습')}</h1>
   <p>ROBOTIS MAX-E1을 엑스박스 컨트롤러로 조종합니다. 버튼마다 공식 예제 모션(걷기·옆걸음·펀치·훅·킥·막기·일어서기)이 연결되어 있습니다.${P.get('opp') ? ` 상대 팀 <b style="color:#ffd25a">${esc(P.get('opp'))}</b>` : ''} · 상대 실력 ${1 + Math.round(LEVEL * 4)}단계 / 5</p>
   <div class="cols"><div>${keyTable}</div><div>
     <p class="note">경기장: 밴텀급(1.5 kg 미만, MAX-E1 1.2 kg) 120 × 120 cm, 높이 10 cm · 가운데 "11" 선 뒤에서 마주 보고 출발</p>
     <p class="note">상대를 넘어뜨리면(다운) 1점, 경기장 밖으로 밀어내면(링아웃) 1점. 킥으로 넘어뜨리면 경기당 한 번 크리티컬 어택 2점. 3분 뒤 점수가 많은 쪽이 이기고, 5점을 먼저 얻으면 TKO 승리.</p>
-    <p class="note">내가 넘어지면 <b>Y</b>로 일어서세요. 10카운트 안에 못 일어서면 KO 패배입니다. 공격 중(특히 킥)에는 균형이 무너져 잘 넘어집니다.</p>
+    <p class="note">내가 넘어지면 팔로 짚고 일어서는 모션(앞 105 · 뒤 106)이 나옵니다 — 자동(1.2초 뒤) 또는 <b>Y</b>로 바로. 10카운트 안에 못 일어서면 KO 패배입니다. 공격 중(특히 킥)에는 균형이 무너져 잘 넘어집니다.</p>
     <p class="note">${MODE === 'match' ? '대진표 경기: 동점이면 1분 연장 — 먼저 점수를 내면 승리' : '연습 경기: 동점이면 무승부'}</p>
   </div></div>
   <div style="display:flex;gap:8px;margin-top:12px"><button class="btn pri" id="startBtn">경기 시작</button></div>`;
@@ -577,7 +613,7 @@ function showEnd(res, sc) {
 }
 $('#exit').addEventListener('click', () => post({ type: 'wrlsim:exit' })); if (!EMBED) $('#exit').style.display = 'none';
 renderer.domElement.addEventListener('pointerdown', () => view.focus());
-cycleCam(); cycleCam(); cycleCam(); cycleCam(); // 'side'로
+$('#cam').textContent = '📷 ' + CAMNAME[camMode] + ' (C · View)';
 resize(); requestAnimationFrame(frame);
 window.__hb = { me, op, G, AI, tick, startMatch, ATK, hitCheck, control, aiThink, Bot, camera, controls, setCam: m => { camMode = m; controls.enabled = m === 'free'; } };
 post({ type: 'wrlsim:ready' });

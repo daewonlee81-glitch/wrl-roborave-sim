@@ -61,7 +61,7 @@ $('#help').innerHTML = TASK === 'sumo' ? `<h4>스모봇 진행 방법</h4>
   ② 위의 <b>▶ 판 시작</b>을 누르면 처음 위치로 돌아가 프로그램이 실행됩니다. 두 로봇은 가운데에서 등을 맞대고 출발합니다.<br>
   ③ 규정대로 <b>3초 기다린 뒤</b> 테두리까지 갔다가 상대를 찾아 밀어내세요. 빨간 상자가 가상 상대이고, 흰 띠가 앞쪽입니다.<br>
   ④ 먼저 경기장 밖으로 떨어진 쪽이 지고, 60초가 지나면 무승부입니다. <b>먼저 2판을 이기면 승리</b>합니다.<br>
-  물리엔진이 켜져 있어야 상대가 움직입니다 (자동으로 켭니다). 자동 튜닝 학습·AI 카메라 등 캐드 기능을 그대로 쓸 수 있습니다.`
+  물리엔진이 켜져 있어야 상대가 움직입니다 (자동으로 켭니다). 자동 튜닝 학습·AI 카메라 등 캐드 기능을 그대로 쓸 수 있고, 경기는 시뮬레이션 안에서만 진행합니다 (실제 허브 연결·다운로드 없음).`
   : `<h4>AI 오셀로 진행 방법</h4>
   ① 캐드 시뮬레이터에서 허스키렌즈·컬러 센서를 쓰는 오셀로 프로그램을 워드블럭으로 만듭니다.<br>
   ② <b>▶ 경기 시작</b>을 누르면 프로그램이 실행됩니다. 상대 로봇은 내 프로그램을 반대편에서 그대로 실행하며(학습 색만 빨강↔파랑), 라운드가 올라갈수록 빨라집니다.<br>
@@ -79,7 +79,7 @@ async function boot() {
     try { cw = fr.contentWindow; void cw.document; } catch (e) { return fail('캐드 시뮬레이터에 연결할 수 없습니다 (다른 사이트 주소).'); }
     for (let i = 0; i < 120 && !(cw.__sim && cw.__umc && cw.__wb); i++) await new Promise(r => setTimeout(r, 250));
     if (!cw.__sim) return fail('캐드 시뮬레이터가 열리지 않았습니다.');
-    if (!cw.__wrl) await new Promise((res, rej) => { const s = cw.document.createElement('script'); s.src = new URL('wrl-addon.js?v=5', location.href).href; s.onload = res; s.onerror = rej; cw.document.head.appendChild(s); });
+    if (!cw.__wrl) await new Promise((res, rej) => { const s = cw.document.createElement('script'); s.src = new URL('wrl-addon.js?v=6', location.href).href; s.onload = res; s.onerror = rej; cw.document.head.appendChild(s); });
     const mat = TASK === 'othello_ai' ? 'othello_ai' : null;
     const r = await cw.__wrl.setup(TASK, { level: LEVEL, mat, lock: MODE === 'match' });
     fr.hidden = false; $('#msg').remove(); ready = true;
