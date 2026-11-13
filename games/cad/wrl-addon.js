@@ -174,8 +174,10 @@
         document.head.appendChild(st);
       }
       for (const id of ['pbConn', 'pbRun', 'pbUp']) { const b = document.getElementById(id); if (b) b.disabled = true; }
-      try { S.enterSim && S.enterSim(); } catch (e) {}
-      const mb = document.querySelector('#modeSim'); if (mb && mb.getAttribute('aria-pressed') !== 'true') mb.click();
+      // 시뮬레이터 로봇을 지금 CAD 모델로 다시 만듦 (도면을 연 뒤 바퀴·센서·포트를 다시 찾게)
+      try { if (U.sim().on && S.exitSim) S.exitSim(); } catch (e) {}
+      const mb = document.querySelector('#modeSim'); if (mb) mb.click();
+      try { if (!U.sim().on && S.enterSim) S.enterSim(); } catch (e) {}
       await new Promise(r => setTimeout(r, 400));
       let key = opts.mat;
       if (task === 'sumo') { makeSumoMat(); key = SUMO_KEY; }
@@ -185,6 +187,26 @@
       if (opts.lock) { if (sel) sel.disabled = true; }
       return { mat: U.mat() && U.mat().key, physics: !!U.sim().physics };
     },
+    // 캐드 '열기'와 같은 방식으로 .ldr 도면을 엽니다 (로봇 모형 · 시뮬레이터 설정 · 블록 프로그램)
+    // 캐드의 부품 라이브러리 로딩이 끝날 때까지 기다림 (그 전에 도면을 열면 바퀴를 못 찾아 기본 로봇이 됨)
+    async ready() {
+      for (let i = 0; i < 300; i++) { const l = document.querySelector('#loading'); if (l && l.hidden) break; await new Promise(r => setTimeout(r, 200)); }
+      await new Promise(r => setTimeout(r, 300));
+      for (const b of document.querySelectorAll('button')) { const box = b.closest('div'); if (box && /로딩이 끝났습니다|Loading (is )?(done|finished)/i.test(box.textContent) && /확인|OK/.test(b.textContent)) b.click(); }
+    },
+    async loadModel(url, name) {
+      const cad = window.__cad, inp = document.querySelector('#fileIn'); if (!cad || !inp) return false;
+      const r = await fetch(url, { cache: 'no-cache' }); if (!r.ok) return false;
+      const f = new File([await r.blob()], name), before = cad.model;
+      const dt = new DataTransfer(); dt.items.add(f); inp.files = dt.files; inp.dispatchEvent(new Event('change', { bubbles: true }));
+      for (let i = 0; i < 150 && cad.model === before; i++) await new Promise(res => setTimeout(res, 200));
+      // 부품 형상을 다 불러올 때까지 (상태 줄이 '불러오는 중…'에서 'N개 부품 불러옴'으로 바뀜)
+      const st = () => (document.querySelector('#status') || {}).textContent || '';
+      for (let i = 0; i < 400 && /불러오는 중|Loading/i.test(st()); i++) { post({ type: 'loading', msg: st() }); await new Promise(res => setTimeout(res, 250)); }
+      await new Promise(res => setTimeout(res, 400));
+      return cad.model !== before;
+    },
+    modelParts() { try { return (window.__cad.model.parts || []).length; } catch (e) { return 0; } },
     async ensurePhysics() { if (!U.sim().physics) await S.setPhysics(true); },
     async startRun() { const rb = document.querySelector('#simReset'); if (rb) rb.click(); await new Promise(r => setTimeout(r, 250)); try { await S.runProgram(); } catch (e) { post({ type: 'error', msg: String(e && e.message || e) }); } },
     stop() { try { S.stopProgram(); } catch (e) {} },

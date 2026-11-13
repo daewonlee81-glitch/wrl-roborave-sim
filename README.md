@@ -29,7 +29,7 @@
 | `js/events.js` | 종목 정의와 규정 요약, 라운드별 난이도 |
 | `js/tournament.js` | 16팀 대진표, 가상 팀 경기 결과, 진행 저장(localStorage) |
 | `games/rc/` | 조종 시뮬레이터 ([Robomakers_Simul](https://github.com/daewonlee81-glitch/Robomakers_Simul)) + `embed.js` 연결 코드 |
-| `games/cad/` | [로보메이커스 캐드](https://github.com/daewonlee81-glitch/mindstorms-cad) 시뮬레이터를 같은 사이트(`/mindstorms-cad/`)에서 불러와 대회 진행을 붙이는 화면 + `wrl-addon.js` (스모 가상 상대 · AI 오셀로 판정) |
+| `games/cad/` | [로보메이커스 캐드](https://github.com/daewonlee81-glitch/mindstorms-cad) 시뮬레이터를 같은 사이트(`/mindstorms-cad/`)에서 불러와 대회 진행을 붙이는 화면 + `wrl-addon.js` (스모 가상 상대 · AI 오셀로 판정) · `robots/` 기본 로봇 도면 (스모 CUP, 오셀로 AI OTAI) |
 | `games/middlebot/` | 미들봇 조종 시뮬레이터 — 메카넘 4WD + EEZYbotARM 흡착 로봇, 신호등 기둥·블록 쌓기 점수 (경기장 배치·점수표는 `CFG`에 모은 가정값) |
 | `games/humanoid/` | 휴머노이드 배틀 — MAX-E1을 Dynamic-Makers와 같은 방식으로 렌더링(ROBOTIS STEP 부품 메시 `parts-data.js` + 부품 조립 `maxe1-cad.json`), 공식 예제 모션(`maxe1-motions.json`, © ROBOTIS), 타격·다운·링아웃·KO 판정, 가상 상대 AI |
 | `img/` | WRL 2027 포스터의 로고와 종목 마스코트 |

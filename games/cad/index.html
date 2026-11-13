@@ -51,19 +51,22 @@ const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '
 const TASK = P.get('task') || 'sumo', MODE = P.get('mode') || 'practice';
 const LEVEL = Math.max(0, Math.min(1, +(P.get('level') || 0.3)));
 const CAD_URL = P.get('cad') || '/mindstorms-cad/index.html';
+const OTAI_VER = '2', SUMO_VER = '1';
 const post = m => { try { parent.postMessage(Object.assign({ source: 'wrlsim' }, m), '*'); } catch (e) {} };
 $('#title').textContent = P.get('title') || (TASK === 'sumo' ? '스모봇' : 'AI 오셀로');
 $('#oppTxt').innerHTML = (P.get('opp') ? `상대 팀 <b class="op">${esc(P.get('opp'))}</b> · ` : '') + `상대 ${1 + Math.round(LEVEL * 4)}단계 / 5`;
 $('#exit').addEventListener('click', () => post({ type: 'wrlsim:exit' }));
 $('#helpBtn').addEventListener('click', () => $('#help').classList.toggle('on'));
 $('#help').innerHTML = TASK === 'sumo' ? `<h4>스모봇 진행 방법</h4>
-  ① 캐드 시뮬레이터 왼쪽에서 워드블럭으로 스모 프로그램을 만듭니다 (CAD에서 만든 로봇이나 기본 로봇).<br>
+  ① 처음 열면 <b>스모 로봇(CUP)</b>이 불려 옵니다. 캐드 시뮬레이터 왼쪽에서 워드블럭으로 스모 프로그램을 만드세요.<br>
+  <button id="reSUMO" style="margin:4px 0">🤖 스모 로봇 다시 불러오기</button><br>
   ② 위의 <b>▶ 판 시작</b>을 누르면 처음 위치로 돌아가 프로그램이 실행됩니다. 두 로봇은 가운데에서 등을 맞대고 출발합니다.<br>
   ③ 규정대로 <b>3초 기다린 뒤</b> 테두리까지 갔다가 상대를 찾아 밀어내세요. 빨간 상자가 가상 상대이고, 흰 띠가 앞쪽입니다.<br>
   ④ 먼저 경기장 밖으로 떨어진 쪽이 지고, 60초가 지나면 무승부입니다. <b>먼저 2판을 이기면 승리</b>합니다.<br>
   물리엔진이 켜져 있어야 상대가 움직입니다 (자동으로 켭니다). 자동 튜닝 학습·AI 카메라 등 캐드 기능을 그대로 쓸 수 있고, 경기는 시뮬레이션 안에서만 진행합니다 (실제 허브 연결·다운로드 없음).`
   : `<h4>AI 오셀로 진행 방법</h4>
-  ① 캐드 시뮬레이터에서 허스키렌즈·컬러 센서를 쓰는 오셀로 프로그램을 워드블럭으로 만듭니다.<br>
+  ① 처음 열면 <b>오셀로 AI 로봇(OTAI)</b>이 로봇 모형 · 허스키렌즈 설정 · 예제 블록 프로그램과 함께 불려 옵니다. 블록을 고쳐 내 전략을 만드세요.<br>
+  <button id="reOTAI" style="margin:4px 0">🤖 오셀로 AI 로봇 다시 불러오기</button><br>
   ② <b>▶ 경기 시작</b>을 누르면 프로그램이 실행됩니다. 상대 로봇은 내 프로그램을 반대편에서 그대로 실행하며(학습 색만 빨강↔파랑), 라운드가 올라갈수록 빨라집니다.<br>
   ③ 2분 뒤 바닥에 놓인 판의 색으로 승부 · 11개를 모두 뒤집으면 즉시 승리 · 떨어지면 패배.`;
 
@@ -79,8 +82,19 @@ async function boot() {
     try { cw = fr.contentWindow; void cw.document; } catch (e) { return fail('캐드 시뮬레이터에 연결할 수 없습니다 (다른 사이트 주소).'); }
     for (let i = 0; i < 120 && !(cw.__sim && cw.__umc && cw.__wb); i++) await new Promise(r => setTimeout(r, 250));
     if (!cw.__sim) return fail('캐드 시뮬레이터가 열리지 않았습니다.');
-    if (!cw.__wrl) await new Promise((res, rej) => { const s = cw.document.createElement('script'); s.src = new URL('wrl-addon.js?v=6', location.href).href; s.onload = res; s.onerror = rej; cw.document.head.appendChild(s); });
+    if (!cw.__wrl) await new Promise((res, rej) => { const s = cw.document.createElement('script'); s.src = new URL('wrl-addon.js?v=9', location.href).href; s.onload = res; s.onerror = rej; cw.document.head.appendChild(s); });
+    await cw.__wrl.ready();
     const mat = TASK === 'othello_ai' ? 'othello_ai' : null;
+    // AI 오셀로: 오셀로 AI 로봇(OTAI.ldr — 로봇 모형 · 허스키렌즈 설정 · 예제 블록 프로그램)을 처음 한 번 불러옵니다
+    // 스모: 스모 로봇(CUP — 로봇 모형만)을 처음 한 번 불러옵니다
+    if (TASK === 'sumo') {
+      let done = false; try { done = localStorage.getItem('wrlsim.sumobot') === SUMO_VER && cw.__wrl.modelParts() > 0; } catch (e) {}
+      if (!done) { st('스모 로봇(CUP)을 불러오는 중…'); const ok = await cw.__wrl.loadModel(new URL('robots/SUMO-CUP.ldr?v=' + SUMO_VER, location.href).href, 'CUP.ldr'); if (ok) try { localStorage.setItem('wrlsim.sumobot', SUMO_VER); } catch (e) {} }
+    }
+    if (TASK === 'othello_ai') {
+      let done = false; try { done = localStorage.getItem('wrlsim.otai') === OTAI_VER && cw.__wrl.modelParts() > 0; } catch (e) {}
+      if (!done) { st('오셀로 AI 로봇(OTAI)을 불러오는 중…'); const ok = await cw.__wrl.loadModel(new URL('robots/OTAI.ldr?v=' + OTAI_VER, location.href).href, 'OTAI.ldr'); if (ok) try { localStorage.setItem('wrlsim.otai', OTAI_VER); } catch (e) {} }
+    }
     const r = await cw.__wrl.setup(TASK, { level: LEVEL, mat, lock: MODE === 'match' });
     fr.hidden = false; $('#msg').remove(); ready = true;
     $('#go').disabled = false; $('#go').textContent = TASK === 'sumo' ? '▶ 1판 시작' : '▶ 경기 시작';
@@ -101,6 +115,16 @@ $('#go').addEventListener('click', async () => {
   cw.focus();
 });
 
+document.addEventListener('click', async e => {
+  if (e.target && e.target.id === 'reSUMO' && cw && !busy) {
+    if (!confirm('스모 로봇(CUP)을 다시 불러올까요? 지금 캐드의 로봇 모형이 바뀝니다 (캐드의 🕘 기록에서 되돌릴 수 있음).')) return;
+    st('스모 로봇(CUP)을 불러오는 중…'); await cw.__wrl.loadModel(new URL('robots/SUMO-CUP.ldr?v=' + SUMO_VER, location.href).href, 'CUP.ldr'); await cw.__wrl.setup(TASK, { level: LEVEL, lock: MODE === 'match' }); st('스모 로봇을 불러왔습니다');
+  }
+  if (e.target && e.target.id === 'reOTAI' && cw && !busy) {
+    if (!confirm('오셀로 AI 로봇(OTAI)을 다시 불러올까요? 지금 캐드의 로봇과 블록 프로그램이 바뀝니다 (캐드의 🕘 기록에서 되돌릴 수 있음).')) return;
+    st('오셀로 AI 로봇(OTAI)을 불러오는 중…'); await cw.__wrl.loadModel(new URL('robots/OTAI.ldr?v=' + OTAI_VER, location.href).href, 'OTAI.ldr'); await cw.__wrl.setup(TASK, { level: LEVEL, mat: 'othello_ai', lock: MODE === 'match' }); st('오셀로 AI 로봇을 불러왔습니다');
+  }
+});
 addEventListener('message', e => {
   const d = e.data; if (!d || d.source !== 'wrlcad') return;
   if (d.type === 'bout' && TASK === 'sumo' && !done) {
@@ -125,6 +149,7 @@ addEventListener('message', e => {
   if (d.type === 'run' && !d.on && busy && TASK !== 'sumo' && TASK !== 'othello_ai') { busy = false; if (!done) { $('#go').disabled = false; } }
   if (d.type === 'run' && !d.on && busy && TASK === 'sumo') st(`${bouts.length + 1}판 — 내 프로그램이 끝났습니다. 판정이 날 때까지 계속됩니다 (최대 60초)`);
   if (d.type === 'note') st(d.msg);
+  if (d.type === 'loading' && !ready) st('로봇 부품을 불러오는 중… ' + (d.msg || ''));
   if (d.type === 'error') st('⚠ ' + d.msg);
 });
 boot();
