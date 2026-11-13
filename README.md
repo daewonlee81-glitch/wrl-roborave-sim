@@ -10,12 +10,9 @@
 | 리그 | 종목 | 방식 | 상태 |
 |---|---|---|---|
 | WRL | 휴머노이드 배틀 | 조종형 (MAX-E1 모션 ↔ 엑스박스 버튼) | 준비 중 |
-| WRL | 휴머노이드 릴레이 | 조종형 · 기록 도전 | 준비 중 |
-| WRL | 로봇 컬링 (드라이브 · 휴머노이드) | 조종형 | 준비 중 |
-| WRL | 로봇배틀 오셀로 | 조종형 | ✅ |
+| WRL | 로봇배틀 오셀로 | 조종형 · AI 오셀로 디비전은 자율형(캐드 시뮬레이터) | ✅ |
 | WRL | MRC 축구 (Open·LEGO · Micro) | 조종형 | ✅ |
-| RoboRAVE | 스모봇 | 자율형 (SPIKE 워드블럭 코딩, 3판 2선승) | ✅ |
-| RoboRAVE | 라인 팔로잉 | 자율형 · 기록 도전 | 준비 중 |
+| RoboRAVE | 스모봇 | 자율형 (로보메이커스 캐드 시뮬레이터 · 가상 상대 · 3판 2선승) | ✅ |
 | RoboRAVE | 미들봇 | 조종형 · 기록 도전 (메카넘 4WD + EEZYbotARM 흡착 로봇) | ✅ |
 | RoboRAVE | 사커봇 RC | 조종형 | ✅ |
 
@@ -29,12 +26,13 @@
 | `js/events.js` | 종목 정의와 규정 요약, 라운드별 난이도 |
 | `js/tournament.js` | 16팀 대진표, 가상 팀 경기 결과, 진행 저장(localStorage) |
 | `games/rc/` | 조종 시뮬레이터 ([Robomakers_Simul](https://github.com/daewonlee81-glitch/Robomakers_Simul)) + `embed.js` 연결 코드 |
-| `games/sumo/` | 스모 워드블럭 시뮬레이터 ([roborave-sumo-simulator](https://github.com/daewonlee81-glitch/roborave-sumo-simulator)) + `embed.js` (단계별 상대 · 3판 2선승 · 프로그램 자동 저장) |
+| `games/cad/` | [로보메이커스 캐드](https://github.com/daewonlee81-glitch/mindstorms-cad) 시뮬레이터를 같은 사이트(`/mindstorms-cad/`)에서 불러와 대회 진행을 붙이는 화면 + `wrl-addon.js` (스모 가상 상대 · AI 오셀로 판정) |
 | `games/middlebot/` | 미들봇 조종 시뮬레이터 — 메카넘 4WD + EEZYbotARM 흡착 로봇, 신호등 기둥·블록 쌓기 점수 (경기장 배치·점수표는 `CFG`에 모은 가정값) |
 | `img/` | WRL 2027 포스터의 로고와 종목 마스코트 |
 | `vendor/` | three.js 0.160 (MIT), cannon-es 0.20 (MIT) |
 
 경기 화면은 iframe으로 열리고, 경기가 끝나면 `postMessage({source:'wrlsim', type:'wrlsim:result', result, score})`로 결과를 돌려줍니다.
+캐드 연결 화면은 `daewonlee81-glitch.github.io`에서 열어야 합니다 (캐드와 같은 출처). 로컬에서는 두 리포를 한 폴더에 나란히 두고 그 폴더에서 웹 서버를 여세요.
 새 종목 엔진도 같은 방식(`games/<엔진>/index.html?embed=1&mode=match|practice&level=0~1`)으로 붙입니다.
 
 ## 로컬 실행

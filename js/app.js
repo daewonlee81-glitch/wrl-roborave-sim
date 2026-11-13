@@ -17,6 +17,7 @@ const playBadge = ev => ev.play === 'control' ? '<span class="badge ctl">🎮 �
 const kindBadge = ev => ev.kind === 'versus' ? '<span class="badge">⚔ 가상 상대와 대결</span>' : '<span class="badge">⏱ 기록 도전</span>';
 const divOf = (ev, key) => (ev.divisions || []).find(d => d.key === key) || (ev.divisions || [])[0] || { key: 'std', name: '' };
 const tKey = (evKey, div) => evKey + '.' + div;
+const eff = (ev, div) => Object.assign({}, ev, { engine: div.engine || ev.engine, play: div.play || ev.play, task: div.task || ev.task });
 
 /* ---------------- 라우팅 ---------------- */
 function route() {
@@ -89,7 +90,8 @@ function league(k) {
 
 /* ---------------- 종목 로비 ---------------- */
 function eventPage(e, divKey) {
-  const ev = EVENTS[e], L = LEAGUES[ev.league], div = divOf(ev, divKey || store.get('div.' + e, null));
+  const ev0 = EVENTS[e], L = LEAGUES[ev0.league], div = divOf(ev0, divKey || store.get('div.' + e, null));
+  const ev = eff(ev0, div);
   document.title = ev.name + ' — 대회 시뮬레이터';
   const t = T.loadT(tKey(e, div.key));
   const ready = ev.status === 'ready';
@@ -156,7 +158,8 @@ function controlsCard(ev) {
 
 /* ---------------- 대진표 ---------------- */
 function bracket(e, divKey) {
-  const ev = EVENTS[e], L = LEAGUES[ev.league], div = divOf(ev, divKey);
+  const ev0 = EVENTS[e], L = LEAGUES[ev0.league], div = divOf(ev0, divKey);
+  const ev = eff(ev0, div);
   const key = tKey(e, div.key);
   let t = T.loadT(key);
   if (!t) return go(`#/event/${e}/${div.key}`);
@@ -208,12 +211,12 @@ function gameUrl(ev, div, o) {
   if (o.opp) p.set('opp', `${o.opp.name} (${o.opp.nat})`);
   if (o.free) p.set('free', '1');
   if (ev.engine === 'rc') { p.set('rs', div.rs); p.set('ai', aiSkill('rc', o.level)); p.set('mate', 0.75); return 'games/rc/index.html?' + p; }
-  p.set('event', ev.key || ''); p.set('level', o.level);
+  p.set('event', ev.key || ''); p.set('level', o.level); if (ev.task) p.set('task', ev.task);
   const tg = targetOf(ev.engine, o.level); if (tg) p.set('target', tg);
   return `games/${ev.engine}/index.html?` + p;
 }
 function openGame(e, div, o) {
-  const ev = Object.assign({ key: e }, EVENTS[e]);
+  const ev = Object.assign({ key: e }, eff(EVENTS[e], div));
   closeGame(true);
   const wrap = document.createElement('div'); wrap.id = 'game';
   wrap.innerHTML = `<iframe allow="gamepad; fullscreen; autoplay" src="${gameUrl(ev, div, o)}"></iframe><div class="loading">경기장을 준비하는 중…</div>`;

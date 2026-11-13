@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>로보메이커스 캐드 시뮬레이터 — 대회 모드</title>
+<link rel="icon" href="../../favicon.svg" type="image/svg+xml">
+<style>
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;overflow:hidden;background:#232842;color:#eef0f8;font:600 14px system-ui,-apple-system,"Apple SD Gothic Neo","Malgun Gothic",sans-serif}
+#bar{height:52px;display:flex;align-items:center;gap:12px;padding:0 12px;background:#2b3150;box-shadow:0 2px 10px #0005;position:relative;z-index:2;white-space:nowrap;overflow-x:auto}
+button{font:inherit;border:1px solid #545c86;background:#3a4166;color:#fff;border-radius:8px;padding:6px 12px;cursor:pointer}
+button:hover{background:#474f7a}
+button.pri{background:linear-gradient(90deg,#ffd25a,#ff8f5a);color:#2a1d05;border-color:transparent}
+button:disabled{opacity:.45;cursor:not-allowed}
+.t{font-size:15px}.op{color:#ffd25a}
+.dots{display:flex;gap:6px;align-items:center}
+.dots i{display:inline-block;width:14px;height:14px;border-radius:50%;border:2px solid #8a90b8}
+.dots i.win{background:#2C7BF2;border-color:#2C7BF2}.dots i.loss{background:#E8402E;border-color:#E8402E}.dots i.draw{background:#c9a227;border-color:#c9a227}
+#st{font-weight:500;color:#c9cde6}
+.sp{flex:1}
+#cad{position:absolute;top:52px;left:0;right:0;bottom:0;width:100%;height:calc(100% - 52px);border:0;background:#fff}
+#msg{position:absolute;inset:52px 0 0 0;display:flex;align-items:center;justify-content:center;background:#232842;z-index:1;text-align:center;padding:20px;font-weight:500;line-height:1.7}
+#msg b{color:#ffd25a}
+#help{position:absolute;right:12px;top:60px;width:360px;z-index:3;background:#2b3150f5;border:1px solid #545c86;border-radius:10px;padding:12px 14px;font-weight:400;font-size:13px;line-height:1.6;display:none}
+#help.on{display:block}
+#help h4{margin:0 0 4px;font-size:13px}
+</style>
+</head>
+<body>
+<div id="bar">
+  <button id="exit">← 나가기</button>
+  <span class="t" id="title"></span>
+  <span id="oppTxt"></span>
+  <span class="dots" id="dots"></span>
+  <span id="st">캐드 시뮬레이터를 여는 중…</span>
+  <span class="sp"></span>
+  <button id="helpBtn">진행 방법</button>
+  <button class="pri" id="go" disabled>▶ 시작</button>
+</div>
+<div id="msg">로보메이커스 캐드 시뮬레이터를 불러오는 중입니다…</div>
+<iframe id="cad" allow="gamepad; camera; microphone; bluetooth; serial; fullscreen; autoplay" hidden></iframe>
+<div id="help"></div>
+<script>
+/* 로보메이커스 캐드(mindstorms-cad) 시뮬레이터를 그대로 띄우고 대회 진행(상대 · 판정 · 대진표 결과)을 붙이는 화면.
+   캐드는 같은 사이트(daewonlee81-glitch.github.io/mindstorms-cad/)에서 불러오므로 같은 출처라 직접 연결됩니다.
+   ?embed=1&mode=match|practice&task=sumo|othello_ai&level=0~1&title=..&opp=..&cad=<캐드 주소(선택)> */
+const P = new URLSearchParams(location.search);
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+const TASK = P.get('task') || 'sumo', MODE = P.get('mode') || 'practice';
+const LEVEL = Math.max(0, Math.min(1, +(P.get('level') || 0.3)));
+const CAD_URL = P.get('cad') || '/mindstorms-cad/index.html';
+const post = m => { try { parent.postMessage(Object.assign({ source: 'wrlsim' }, m), '*'); } catch (e) {} };
+$('#title').textContent = P.get('title') || (TASK === 'sumo' ? '스모봇' : 'AI 오셀로');
+$('#oppTxt').innerHTML = (P.get('opp') ? `상대 팀 <b class="op">${esc(P.get('opp'))}</b> · ` : '') + `상대 ${1 + Math.round(LEVEL * 4)}단계 / 5`;
+$('#exit').addEventListener('click', () => post({ type: 'wrlsim:exit' }));
+$('#helpBtn').addEventListener('click', () => $('#help').classList.toggle('on'));
+$('#help').innerHTML = TASK === 'sumo' ? `<h4>스모봇 진행 방법</h4>
+  ① 캐드 시뮬레이터 왼쪽에서 워드블럭으로 스모 프로그램을 만듭니다 (CAD에서 만든 로봇이나 기본 로봇).<br>
+  ② 위의 <b>▶ 판 시작</b>을 누르면 처음 위치로 돌아가 프로그램이 실행됩니다. 두 로봇은 가운데에서 등을 맞대고 출발합니다.<br>
+  ③ 규정대로 <b>3초 기다린 뒤</b> 테두리까지 갔다가 상대를 찾아 밀어내세요. 빨간 상자가 가상 상대이고, 흰 띠가 앞쪽입니다.<br>
+  ④ 먼저 경기장 밖으로 떨어진 쪽이 지고, 60초가 지나면 무승부입니다. <b>먼저 2판을 이기면 승리</b>합니다.<br>
+  물리엔진이 켜져 있어야 상대가 움직입니다 (자동으로 켭니다). 자동 튜닝 학습·AI 카메라 등 캐드 기능을 그대로 쓸 수 있습니다.`
+  : `<h4>AI 오셀로 진행 방법</h4>
+  ① 캐드 시뮬레이터에서 허스키렌즈·컬러 센서를 쓰는 오셀로 프로그램을 워드블럭으로 만듭니다.<br>
+  ② <b>▶ 경기 시작</b>을 누르면 프로그램이 실행됩니다. 상대 로봇은 내 프로그램을 반대편에서 그대로 실행하며(학습 색만 빨강↔파랑), 라운드가 올라갈수록 빨라집니다.<br>
+  ③ 2분 뒤 바닥에 놓인 판의 색으로 승부 · 11개를 모두 뒤집으면 즉시 승리 · 떨어지면 패배.`;
+
+let cw = null, ready = false;
+const bouts = []; let busy = false, done = false;
+function dots() { if (TASK !== 'sumo') return; $('#dots').innerHTML = [0, 1, 2].map(i => `<i class="${bouts[i] || ''}" title="${i + 1}판"></i>`).join('') + ` <span>${bouts.filter(b => b === 'win').length} : ${bouts.filter(b => b === 'loss').length}</span>`; }
+dots();
+const st = t => { $('#st').textContent = t; };
+
+async function boot() {
+  const fr = $('#cad'); fr.src = CAD_URL;
+  fr.addEventListener('load', async () => {
+    try { cw = fr.contentWindow; void cw.document; } catch (e) { return fail('캐드 시뮬레이터에 연결할 수 없습니다 (다른 사이트 주소).'); }
+    for (let i = 0; i < 120 && !(cw.__sim && cw.__umc && cw.__wb); i++) await new Promise(r => setTimeout(r, 250));
+    if (!cw.__sim) return fail('캐드 시뮬레이터가 열리지 않았습니다.');
+    if (!cw.__wrl) await new Promise((res, rej) => { const s = cw.document.createElement('script'); s.src = new URL('wrl-addon.js?v=5', location.href).href; s.onload = res; s.onerror = rej; cw.document.head.appendChild(s); });
+    const mat = TASK === 'othello_ai' ? 'othello_ai' : null;
+    const r = await cw.__wrl.setup(TASK, { level: LEVEL, mat, lock: MODE === 'match' });
+    fr.hidden = false; $('#msg').remove(); ready = true;
+    $('#go').disabled = false; $('#go').textContent = TASK === 'sumo' ? '▶ 1판 시작' : '▶ 경기 시작';
+    st(TASK === 'sumo' ? '워드블럭으로 프로그램을 만든 뒤 ▶ 판 시작' : '프로그램을 만든 뒤 ▶ 경기 시작');
+    if (TASK === 'sumo' && !r.physics) st('⚠ 물리엔진을 켜지 못했습니다 — 캐드의 [물리엔진] 버튼을 눌러 주세요');
+    post({ type: 'wrlsim:ready' });
+  });
+  setTimeout(() => { if (!ready && $('#msg')) $('#msg').innerHTML = '캐드 시뮬레이터를 불러오는 데 시간이 걸리고 있습니다…<br><span style="color:#a7abc6">인터넷 연결을 확인하세요.</span>'; }, 15000);
+}
+function fail(t) { $('#msg').innerHTML = `${esc(t)}<br><span style="color:#a7abc6">이 화면은 daewonlee81-glitch.github.io 에서 열어야 캐드와 연결됩니다.</span>`; }
+
+$('#go').addEventListener('click', async () => {
+  if (!ready || busy || done) return;
+  if (cw.__wrl.blocks() < 2) { st('⚠ 먼저 워드블럭으로 프로그램을 만드세요'); return; }
+  if (TASK === 'sumo') await cw.__wrl.ensurePhysics();
+  busy = true; $('#go').disabled = true; st(TASK === 'sumo' ? `${bouts.length + 1}판 진행 중 — 3초 뒤 출발` : '경기 중');
+  await cw.__wrl.startRun();
+  cw.focus();
+});
+
+addEventListener('message', e => {
+  const d = e.data; if (!d || d.source !== 'wrlcad') return;
+  if (d.type === 'bout' && TASK === 'sumo' && !done) {
+    bouts.push(d.out); dots(); busy = false;
+    const w = bouts.filter(b => b === 'win').length, l = bouts.filter(b => b === 'loss').length;
+    st(`${bouts.length}판: ${d.out === 'win' ? '승리' : d.out === 'loss' ? '패배' : '무승부'} — ${d.why} (${d.t}초)`);
+    if (w >= 2 || l >= 2 || bouts.length >= 3) {
+      done = true; $('#go').disabled = true; $('#go').textContent = '경기 끝';
+      const result = w > l ? 'win' : w < l ? 'loss' : 'draw';
+      setTimeout(() => post({ type: 'wrlsim:result', result, score: [w, l], detail: `스모 ${bouts.length}판 · 캐드 시뮬레이터` }), 1500);
+    } else { $('#go').disabled = false; $('#go').textContent = `▶ ${bouts.length + 1}판 시작`; }
+  }
+  if (d.type === 'othello' && TASK === 'othello_ai' && !done) {
+    if (d.ev === 'tick') st(`경기 중 ${Math.max(0, 120 - d.t).toFixed(0)}초 남음 · 빨강(나) ${d.score[0]} : ${d.score[1]} 파랑(상대)`);
+    if (d.ev === 'end') {
+      busy = false; st(`${d.out === 'win' ? '승리' : d.out === 'loss' ? '패배' : '무승부'} — ${d.why} · ${d.score[0]} : ${d.score[1]}`);
+      if (MODE === 'match' && d.out === 'draw') { $('#go').disabled = false; $('#go').textContent = '▶ 골든포인트 재경기'; return; }
+      done = true; $('#go').disabled = true;
+      setTimeout(() => post({ type: 'wrlsim:result', result: d.out, score: d.score, detail: `AI 오셀로 · ${d.why}` }), 1500);
+    }
+  }
+  if (d.type === 'run' && !d.on && busy && TASK !== 'sumo' && TASK !== 'othello_ai') { busy = false; if (!done) { $('#go').disabled = false; } }
+  if (d.type === 'run' && !d.on && busy && TASK === 'sumo') st(`${bouts.length + 1}판 — 내 프로그램이 끝났습니다. 판정이 날 때까지 계속됩니다 (최대 60초)`);
+  if (d.type === 'note') st(d.msg);
+  if (d.type === 'error') st('⚠ ' + d.msg);
+});
+boot();
+</script>
+</body>
+</html>
