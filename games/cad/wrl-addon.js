@@ -2,6 +2,7 @@
 // games/cad/index.html(감싸는 화면)이 캐드 문서에 이 스크립트를 넣습니다. 캐드 본체는 고치지 않고 window.__umc · __sim 훅만 씁니다.
 //   · 스모: 'RoboRAVE 스모 (대회)' 경기장 — 등을 맞대고 출발, 물리엔진 위의 가상 상대 로봇(난이도별 속도·무게·반응)
 //   · AI 오셀로: 'WRL 로봇 배틀 오셀로 AI' 경기장 — 상대 로봇(같은 코드)의 속도를 난이도에 맞춰 조절, 판 수로 승부
+//   · 라인 팔로잉: wrl-line.js (탁구공 · 호퍼 · 타워 · 점수)
 (() => {
   'use strict';
   if (window.__wrl) return;
@@ -181,9 +182,10 @@
       await new Promise(r => setTimeout(r, 400));
       let key = opts.mat;
       if (task === 'sumo') { makeSumoMat(); key = SUMO_KEY; }
+      if (task === 'line' && window.__wrlLine) { key = window.__wrlLine.makeMat(opts.div) || key; if (opts.load) window.__wrlLine.loaded = true; }
       S.setMat(key);
       const sel = document.querySelector('#simMat'); if (sel && sel.value !== key) { sel.value = key; sel.dispatchEvent(new Event('change', { bubbles: true })); }
-      if (task === 'sumo') { await S.setPhysics(true); }
+      if (task === 'sumo' || task === 'line') { await S.setPhysics(true); }
       if (opts.lock) { if (sel) sel.disabled = true; }
       return { mat: U.mat() && U.mat().key, physics: !!U.sim().physics };
     },

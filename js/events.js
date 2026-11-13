@@ -97,20 +97,23 @@ export const EVENTS = {
       '두 로봇은 가운데에서 등을 맞대고 출발 → 3초 대기 → 가장자리를 찍고 와서 대결',
       '먼저 경기장 밖 바닥에 닿은 로봇이 집니다 · 한 경기 3분, 두 번 먼저 이기면 승리',
     ],
-    sim: ['기본 로봇: 스모 로봇 CUP (처음 열 때 자동으로 불러옴 · 진행 방법에서 다시 불러오기)', '로보메이커스 캐드 시뮬레이터에서 진행 — 캐드에서 만든 로봇과 워드블럭 프로그램, 물리엔진(Rapier), 자동 튜닝 학습 · AI 카메라를 그대로 사용', '가상 상대 로봇: 라운드가 올라갈수록 속도 · 무게 · 반응 · 조준이 좋아집니다 (1~5단계)', '한 판 60초가 지나면 무승부 · 먼저 2판을 이기면 승리', '시뮬레이션 안에서만 진행합니다 — 실제 허브 연결 · 다운로드 기능은 숨김'],
+    sim: ['기본 로봇: 스모 로봇 CUP — 모터 2개 · 컬러센서 2개 · 초음파 거리센서와 예제 프로그램(5초 뒤 출발 → 가장자리에 닿으면 돌아서기 → 상대를 찾아 밀어내기). 처음 열 때 자동으로 불러오고 진행 방법에서 다시 불러올 수 있음', '로보메이커스 캐드 시뮬레이터에서 진행 — 캐드에서 만든 로봇과 워드블럭 프로그램, 물리엔진(Rapier), 자동 튜닝 학습 · AI 카메라를 그대로 사용', '가상 상대 로봇: 라운드가 올라갈수록 속도 · 무게 · 반응 · 조준이 좋아집니다 (1~5단계)', '한 판 60초가 지나면 무승부 · 먼저 2판을 이기면 승리', '시뮬레이션 안에서만 진행합니다 — 실제 허브 연결 · 다운로드 기능은 숨김'],
     sim: ['로봇: 메카넘 4WD + EEZYbotARM MK2 진공 흡착 (ESP32 · Bluepad32 펌웨어와 같은 조종 매핑)', '방향키 주행(RT 파워) · LT+←→ 평행이동 · 오른스틱 어깨 · 왼스틱 엘보 · RB+오른스틱 턴테이블 · A 집기 · B 놓기', '경기장 배치와 점수표(기본 10점 × 층수 × 배수, 출발 매트 +20)는 공식 도면 확인 전 가정값입니다', '라운드마다 가상 팀의 기록을 넘어야 다음 라운드로 올라갑니다'],
   },
   line: {
     name: '라인 팔로잉', en: 'Line Following', league: 'roborave', icon: 'line',
-    play: 'code', kind: 'record', engine: 'cad', task: 'line', status: 'soon',
+    play: 'code', kind: 'record', engine: 'cad', task: 'line', status: 'ready',
     src: 'https://worldrobotleague.net/rules/roborave/',
+    divisions: [{ key: 'es', name: 'ES (초등) — 교차로 없음 · 선 폭 1.25 cm' }, { key: 'ms', name: 'MS (중등) — 교차로 1개 · 선 폭 1.25 cm' }, { key: 'hs', name: 'HS · UP (고등 · 대학) — 교차로 2개 · 선 폭 0.75 cm' }],
     rules: [
       '120 × 180 cm 흰 트랙의 검은 선을 따라 타워까지 갔다 돌아오는 자율 주행 경기, 3분',
       '선 폭 ES·MS 1.25 cm, HS 0.75 cm · 교차로 ES 0개, MS 1개, HS 2개',
-      '타워에 공을 넣고 출발점으로 돌아오기 → 이후 정해진 개수만큼 공을 더 배달하면 보너스',
-      '경기 내내 선 따라가기 프로그램이 로봇을 움직여야 합니다 · 로봇을 만지면 출발점으로',
+      '타워: 높이 20 cm · 폭 10 cm · 길이 35 cm, 윗면 10 × 10 cm 구멍, 뒤쪽 열림 — 선 끝에 놓임',
+      '첫 번째 왕복 400점: 홈 출발 · T 교차로 · 타워 앞 정지 · 공 넣기 · 돌아가기 · 홈 도착 (디비전마다 배점이 다름)',
+      '보너스: 성공한 왕복 뒤 공지된 개수(ES 75~125 · MS 125~200 · HS 200~250)를 정확히 배달 — 모자라면 넣은 개수, 넘치면 넘친 만큼 뺌',
+      '경기 내내 선 따라가기 프로그램이 로봇을 움직여야 합니다 · 타워를 만지면 400점만 인정 · 로봇을 만지면 출발점으로',
     ],
-    sim: ['로보메이커스 캐드 시뮬레이터의 RoboRAVE 라인 팔로우 ES · MS · HS 경기장으로 만들 예정입니다', '라운드마다 가상 팀의 기록을 넘어야 다음 라운드로 올라갑니다'],
+    sim: ['로보메이커스 캐드 시뮬레이터의 RoboRAVE 라인 팔로우 ES · MS · HS 경기장 — 선 끝 타워를 규정대로 속이 빈 상자(윗면 구멍)로 만들었습니다', '🏓 탁구공 싣기 토글: 로봇 위 공 넣는 부분(호퍼)에 공을 넣습니다. 공 하나하나(Ø40 mm · 2.7 g)가 물리엔진의 공이라 많이 실을수록 무거워지고, 무게중심이 높아지고, 출발·정지·회전 때 공이 쏠립니다', '호퍼 문은 문을 여는 모터(바퀴 · 센서가 없는 첫 포트)를 30° 넘게 돌리면 열리고 공이 하나씩 나옵니다 — 배출구 높이 · 길이 · 위치는 설정에서 바꿀 수 있음', '홈에 멈춰 있을 때 토글로 공을 더 실어 보너스 공 배달 · 경기는 시뮬레이션 안에서만 진행합니다', '라운드마다 가상 팀의 기록(목표 점수)을 넘어야 다음 라운드로 올라갑니다'],
   },
   middlebot: {
     name: '미들봇', en: 'MiddleBot', league: 'roborave', icon: 'middlebot',
@@ -146,9 +149,9 @@ export const EVENTS = {
 export const ROUND_NAMES = ['16강', '8강', '4강', '결승'];
 export const ROUND_LEVEL = [0.15, 0.45, 0.72, 1.0];
 // 엔진별 난이도 → 상대 AI 실력 값
-export function targetOf(engine, level) { if (engine === 'middlebot') return Math.round(25 + level * 195); return 0; }
-export function levelText(engine, level) {
-  if (engine === 'middlebot') return `목표 ${targetOf(engine, level)}점 넘기기`;
+export function targetOf(engine, level, task) { if (engine === 'middlebot') return Math.round(25 + level * 195); if (task === 'line') return Math.round((100 + level * 300) / 5) * 5; return 0; }
+export function levelText(engine, level, task) {
+  if (engine === 'middlebot' || task === 'line') return `목표 ${targetOf(engine, level, task)}점 넘기기`;
   if (engine === 'rc') return `AI ${Math.round(aiSkill('rc', level) * 100)}%`;
   if (engine === 'cad' || engine === 'humanoid' || engine === 'curling') return `상대 로봇 ${1 + Math.round(level * 4)}단계 / 5`;
   return `난이도 ${Math.round(level * 100)}%`;

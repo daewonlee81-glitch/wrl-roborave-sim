@@ -191,7 +191,7 @@ function bracket(e, divKey) {
     ${t.state === 'playing' ? `
       <div class="next">
         <div><div class="rd">${ROUND_NAMES[t.round]}</div><div class="vs"><b>${esc(t.teams[0].name)}</b> <span>VS</span> <b>${esc(opp.name)}</b> <span class="nat">${opp.nat}</span></div>
-        <div class="mute">상대 실력 <span class="st">${stars(lv)}</span> · ${levelText(ev.engine, lv)}</div></div>
+        <div class="mute">상대 실력 <span class="st">${stars(lv)}</span> · ${levelText(ev.engine, lv, ev.task)}</div></div>
         <button class="btn pri big" id="play">경기 시작 ▶</button>
       </div>` : t.state === 'champion' ? `
       <div class="next win"><div><div class="rd">🏆 우승!</div><div class="vs">${esc(t.teams[0].name)} 팀이 16팀 토너먼트에서 우승했습니다.</div></div><button class="btn pri" id="again">다시 도전</button></div>` : `
@@ -218,7 +218,7 @@ function gameUrl(ev, div, o) {
   if (o.free) p.set('free', '1');
   if (ev.engine === 'rc') { p.set('rs', div.rs); p.set('ai', aiSkill('rc', o.level)); p.set('mate', 0.75); return 'games/rc/index.html?' + p; }
   p.set('event', ev.key || ''); p.set('div', div.key || ''); p.set('level', o.level); if (ev.task) p.set('task', ev.task);
-  const tg = targetOf(ev.engine, o.level); if (tg) p.set('target', tg);
+  const tg = targetOf(ev.engine, o.level, ev.task); if (tg) p.set('target', tg);
   return `games/${ev.engine}/index.html?` + p;
 }
 function openGame(e, div, o) {

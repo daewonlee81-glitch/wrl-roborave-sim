@@ -49,16 +49,24 @@ const P = new URLSearchParams(location.search);
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
 const TASK = P.get('task') || 'sumo', MODE = P.get('mode') || 'practice';
+const DIV = P.get('div') || 'es', TARGET = +(P.get('target') || 0);
 const LEVEL = Math.max(0, Math.min(1, +(P.get('level') || 0.3)));
 const CAD_URL = P.get('cad') || '/mindstorms-cad/index.html';
-const OTAI_VER = '2', SUMO_VER = '1';
+const OTAI_VER = '2', SUMO_VER = '2';
 const post = m => { try { parent.postMessage(Object.assign({ source: 'wrlsim' }, m), '*'); } catch (e) {} };
-$('#title').textContent = P.get('title') || (TASK === 'sumo' ? '스모봇' : 'AI 오셀로');
-$('#oppTxt').innerHTML = (P.get('opp') ? `상대 팀 <b class="op">${esc(P.get('opp'))}</b> · ` : '') + `상대 ${1 + Math.round(LEVEL * 4)}단계 / 5`;
+$('#title').textContent = P.get('title') || (TASK === 'sumo' ? '스모봇' : TASK === 'line' ? '라인 팔로잉' : 'AI 오셀로');
+$('#oppTxt').innerHTML = TASK === 'line' ? (P.get('opp') ? `가상 팀 <b class="op">${esc(P.get('opp'))}</b> · ` : '') + (TARGET ? `목표 <b class="op">${TARGET}점</b> 넘기기` : '')
+  : (P.get('opp') ? `상대 팀 <b class="op">${esc(P.get('opp'))}</b> · ` : '') + `상대 ${1 + Math.round(LEVEL * 4)}단계 / 5`;
 $('#exit').addEventListener('click', () => post({ type: 'wrlsim:exit' }));
 $('#helpBtn').addEventListener('click', () => $('#help').classList.toggle('on'));
-$('#help').innerHTML = TASK === 'sumo' ? `<h4>스모봇 진행 방법</h4>
-  ① 처음 열면 <b>스모 로봇(CUP)</b>이 불려 옵니다. 캐드 시뮬레이터 왼쪽에서 워드블럭으로 스모 프로그램을 만드세요.<br>
+$('#help').innerHTML = TASK === 'line' ? `<h4>라인 팔로잉 진행 방법</h4>
+  ① 캐드에서 만든 로봇(또는 기본 로봇)으로 워드블럭 선 따라가기 프로그램을 만드세요. 경기장은 RoboRAVE 라인 팔로잉 ${esc(DIV.toUpperCase())} 트랙이고, 선 끝에 <b>타워</b>(높이 20 cm · 윗면 앞쪽 10 × 10 cm 구멍)가 있습니다.<br>
+  ② 시뮬레이터 왼쪽 아래 <b>🏓 탁구공 싣기</b> 토글을 켜면 로봇 위 <b>공 넣는 부분(호퍼)</b>에 공(개당 2.7 g)이 들어갑니다. 공 하나하나가 물리엔진의 공이라 많이 실을수록 로봇이 무거워지고, 출발 · 정지 · 회전할 때 공이 쏠려 움직임이 달라집니다.<br>
+  ③ 호퍼의 문은 <b>문을 여는 모터</b>(바퀴 · 센서가 없는 첫 포트, 기본 로봇은 F)를 30° 넘게 돌리면 열리고, 열려 있는 동안 공이 하나씩(약 0.3초마다) 나옵니다. 처음 각도로 돌리면 닫힙니다. 타워 앞에 멈춰 문을 열어 공을 구멍에 떨어뜨리세요. 호퍼 설정에서 배출구 높이 · 길이 · 위치를 바꿀 수 있습니다.<br>
+  ④ 점수(첫 번째 왕복 400점): 홈 출발 → ${DIV === 'es' ? '' : 'T 교차로 → '}타워 앞 정지 → 공 넣기 → 돌아가기 → 홈 도착. 홈에 멈춰 있을 때 토글로 공을 더 실으면 <b>보너스 공 배달</b>(공지된 개수를 정확히 넣으면 그 개수만큼)을 할 수 있습니다. 경기는 3분입니다.<br>
+  ⑤ 대진표에서는 라운드마다 가상 팀의 기록(목표 점수)을 넘어야 다음 라운드로 올라갑니다. 물리엔진은 자동으로 켭니다 · 시뮬레이션 안에서만 진행합니다.`
+  : TASK === 'sumo' ? `<h4>스모봇 진행 방법</h4>
+  ① 처음 열면 <b>스모 로봇(CUP)</b>이 모터 2개(A · E) · 컬러센서 2개(B · C, 아래를 봄) · 초음파 거리센서(D, 앞을 봄)와 함께 불려 옵니다. 예제 블록 프로그램도 들어 있습니다: <b>5초 기다린 뒤 출발 → 흰 테두리(가장자리)에 닿으면 물러나 돌아섬 → 초음파로 상대를 찾아 밀어내고, 테두리를 만나면 피함</b>. 블록을 고쳐 내 전략을 만드세요.<br>
   <button id="reSUMO" style="margin:4px 0">🤖 스모 로봇 다시 불러오기</button><br>
   ② 위의 <b>▶ 판 시작</b>을 누르면 처음 위치로 돌아가 프로그램이 실행됩니다. 두 로봇은 가운데에서 등을 맞대고 출발합니다.<br>
   ③ 규정대로 <b>3초 기다린 뒤</b> 테두리까지 갔다가 상대를 찾아 밀어내세요. 빨간 상자가 가상 상대이고, 흰 띠가 앞쪽입니다.<br>
@@ -82,7 +90,8 @@ async function boot() {
     try { cw = fr.contentWindow; void cw.document; } catch (e) { return fail('캐드 시뮬레이터에 연결할 수 없습니다 (다른 사이트 주소).'); }
     for (let i = 0; i < 120 && !(cw.__sim && cw.__umc && cw.__wb); i++) await new Promise(r => setTimeout(r, 250));
     if (!cw.__sim) return fail('캐드 시뮬레이터가 열리지 않았습니다.');
-    if (!cw.__wrl) await new Promise((res, rej) => { const s = cw.document.createElement('script'); s.src = new URL('wrl-addon.js?v=9', location.href).href; s.onload = res; s.onerror = rej; cw.document.head.appendChild(s); });
+    if (!cw.__wrl) await new Promise((res, rej) => { const s = cw.document.createElement('script'); s.src = new URL('wrl-addon.js?v=10', location.href).href; s.onload = res; s.onerror = rej; cw.document.head.appendChild(s); });
+    if (TASK === 'line' && !cw.__wrlLine) await new Promise((res, rej) => { const s = cw.document.createElement('script'); s.src = new URL('wrl-line.js?v=3', location.href).href; s.onload = res; s.onerror = rej; cw.document.head.appendChild(s); });
     await cw.__wrl.ready();
     const mat = TASK === 'othello_ai' ? 'othello_ai' : null;
     // AI 오셀로: 오셀로 AI 로봇(OTAI.ldr — 로봇 모형 · 허스키렌즈 설정 · 예제 블록 프로그램)을 처음 한 번 불러옵니다
@@ -95,11 +104,12 @@ async function boot() {
       let done = false; try { done = localStorage.getItem('wrlsim.otai') === OTAI_VER && cw.__wrl.modelParts() > 0; } catch (e) {}
       if (!done) { st('오셀로 AI 로봇(OTAI)을 불러오는 중…'); const ok = await cw.__wrl.loadModel(new URL('robots/OTAI.ldr?v=' + OTAI_VER, location.href).href, 'OTAI.ldr'); if (ok) try { localStorage.setItem('wrlsim.otai', OTAI_VER); } catch (e) {} }
     }
-    const r = await cw.__wrl.setup(TASK, { level: LEVEL, mat, lock: MODE === 'match' });
+    const r = await cw.__wrl.setup(TASK, { level: LEVEL, mat, div: DIV, load: TASK === 'line', lock: MODE === 'match' });
     fr.hidden = false; $('#msg').remove(); ready = true;
-    $('#go').disabled = false; $('#go').textContent = TASK === 'sumo' ? '▶ 1판 시작' : '▶ 경기 시작';
-    st(TASK === 'sumo' ? '워드블럭으로 프로그램을 만든 뒤 ▶ 판 시작' : '프로그램을 만든 뒤 ▶ 경기 시작');
-    if (TASK === 'sumo' && !r.physics) st('⚠ 물리엔진을 켜지 못했습니다 — 캐드의 [물리엔진] 버튼을 눌러 주세요');
+    $('#go').disabled = false; $('#go').textContent = TASK === 'sumo' ? '▶ 1판 시작' : TASK === 'line' ? '▶ 경기 시작 (3분)' : '▶ 경기 시작';
+    st(TASK === 'sumo' ? '워드블럭으로 프로그램을 만든 뒤 ▶ 판 시작' : TASK === 'line' ? '선 따라가기 프로그램을 만들고 🏓 탁구공을 실은 뒤 ▶ 경기 시작' : '프로그램을 만든 뒤 ▶ 경기 시작');
+    if ((TASK === 'sumo' || TASK === 'line') && !r.physics) st('⚠ 물리엔진을 켜지 못했습니다 — 캐드의 [물리엔진] 버튼을 눌러 주세요');
+    if (TASK === 'line') { const b = document.createElement('button'); b.id = 'endBtn'; b.textContent = '■ 끝내기'; b.disabled = true; $('#go').before(b); b.addEventListener('click', () => { try { cw.__wrlLine.finish('끝내기'); } catch (e) {} }); }
     post({ type: 'wrlsim:ready' });
   });
   setTimeout(() => { if (!ready && $('#msg')) $('#msg').innerHTML = '캐드 시뮬레이터를 불러오는 데 시간이 걸리고 있습니다…<br><span style="color:#a7abc6">인터넷 연결을 확인하세요.</span>'; }, 15000);
@@ -109,15 +119,15 @@ function fail(t) { $('#msg').innerHTML = `${esc(t)}<br><span style="color:#a7abc
 $('#go').addEventListener('click', async () => {
   if (!ready || busy || done) return;
   if (cw.__wrl.blocks() < 2) { st('⚠ 먼저 워드블럭으로 프로그램을 만드세요'); return; }
-  if (TASK === 'sumo') await cw.__wrl.ensurePhysics();
-  busy = true; $('#go').disabled = true; st(TASK === 'sumo' ? `${bouts.length + 1}판 진행 중 — 3초 뒤 출발` : '경기 중');
+  if (TASK === 'sumo' || TASK === 'line') await cw.__wrl.ensurePhysics();
+  busy = true; $('#go').disabled = true; if ($('#endBtn')) $('#endBtn').disabled = false; st(TASK === 'sumo' ? `${bouts.length + 1}판 진행 중 — 3초 뒤 출발` : '경기 중');
   await cw.__wrl.startRun();
   cw.focus();
 });
 
 document.addEventListener('click', async e => {
   if (e.target && e.target.id === 'reSUMO' && cw && !busy) {
-    if (!confirm('스모 로봇(CUP)을 다시 불러올까요? 지금 캐드의 로봇 모형이 바뀝니다 (캐드의 🕘 기록에서 되돌릴 수 있음).')) return;
+    if (!confirm('스모 로봇(CUP)을 다시 불러올까요? 지금 캐드의 로봇 모형과 블록 프로그램이 바뀝니다 (캐드의 🕘 기록에서 되돌릴 수 있음).')) return;
     st('스모 로봇(CUP)을 불러오는 중…'); await cw.__wrl.loadModel(new URL('robots/SUMO-CUP.ldr?v=' + SUMO_VER, location.href).href, 'CUP.ldr'); await cw.__wrl.setup(TASK, { level: LEVEL, lock: MODE === 'match' }); st('스모 로봇을 불러왔습니다');
   }
   if (e.target && e.target.id === 'reOTAI' && cw && !busy) {
@@ -146,7 +156,18 @@ addEventListener('message', e => {
       setTimeout(() => post({ type: 'wrlsim:result', result: d.out, score: d.score, detail: `AI 오셀로 · ${d.why}` }), 1500);
     }
   }
-  if (d.type === 'run' && !d.on && busy && TASK !== 'sumo' && TASK !== 'othello_ai') { busy = false; if (!done) { $('#go').disabled = false; } }
+  if (d.type === 'line' && TASK === 'line' && !done) {
+    if (d.ev === 'tick') st(`경기 중 ${Math.max(0, 180 - d.t).toFixed(0)}초 남음 · ${d.first}점${d.home ? ` + 보너스 공 ${d.bonus}/${d.req}` : ''} · 로봇에 공 ${d.onboard}개 · 타워에 ${d.delivered}개`);
+    if (d.ev === 'end') {
+      busy = false; if ($('#endBtn')) $('#endBtn').disabled = true;
+      const win = !TARGET || d.total >= TARGET;
+      st(`${d.why} — ${d.total}점 (${d.detail || '점수 없음'})${TARGET ? (win ? ' · 목표 달성!' : ` · 목표 ${TARGET}점 미달`) : ''}`);
+      if (MODE !== 'match' && !TARGET) { $('#go').disabled = false; $('#go').textContent = '▶ 다시 하기'; return; }
+      done = true; $('#go').disabled = true; $('#go').textContent = '경기 끝';
+      setTimeout(() => post({ type: 'wrlsim:result', result: win ? 'win' : 'loss', score: [d.total, TARGET], detail: `라인 팔로잉 ${d.total}점 · ${d.detail || ''}${TARGET ? ' · 목표 ' + TARGET + '점' : ''}` }), 2500);
+    }
+  }
+  if (d.type === 'run' && !d.on && busy && TASK !== 'sumo' && TASK !== 'othello_ai' && TASK !== 'line') { busy = false; if (!done) { $('#go').disabled = false; } }
   if (d.type === 'run' && !d.on && busy && TASK === 'sumo') st(`${bouts.length + 1}판 — 내 프로그램이 끝났습니다. 판정이 날 때까지 계속됩니다 (최대 60초)`);
   if (d.type === 'note') st(d.msg);
   if (d.type === 'loading' && !ready) st('로봇 부품을 불러오는 중… ' + (d.msg || ''));
