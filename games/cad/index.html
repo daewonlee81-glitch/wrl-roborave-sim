@@ -54,11 +54,49 @@ const DIV = P.get('div') || 'es', TARGET = +(P.get('target') || 0);
 const LEVEL = Math.max(0, Math.min(1, +(P.get('level') || 0.3)));
 const CAD_URL = P.get('cad') || '/mindstorms-cad/index.html';
 const OTAI_VER = '2', SUMO_VER = '2', LC_VER = '1';
+const BOTS = {
+  sumo: { file: 'SUMO-CUP.ldr', name: 'CUP.ldr', ver: SUMO_VER, label: '스모 로봇(CUP)', msg: '스모 로봇(CUP)을 불러오는 중…' },
+  line: { file: 'LC-RR.ldr', name: 'LC.ldr', ver: LC_VER, label: '라인 팔로잉 로봇(LC)', msg: '라인 팔로잉 로봇(LC)을 불러오는 중…' },
+  othello_ai: { file: 'OTAI.ldr', name: 'OTAI.ldr', ver: OTAI_VER, label: '오셀로 AI 로봇(OTAI)', msg: '오셀로 AI 로봇(OTAI)을 불러오는 중…' },
+};
+const BOT = BOTS[TASK] || null;
+const LS = { get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }, set(k, v) { try { localStorage.setItem(k, v); return true; } catch (e) { return false; } } };
+const SAVE_KEY = 'wrlsim.cadproj.' + TASK;
+// 지금 캐드에 있는 도면이 어느 종목의 것인지: '종목|버전|도면 이름'
+function markBot() { LS.set('wrlsim.cadbot', [TASK, BOT.ver, cw.__wrl.modelName()].join('|')); }
+async function loadDefaultBot() {
+  st(BOT.msg);
+  const ok = await cw.__wrl.loadModel(new URL('robots/' + BOT.file + '?v=' + BOT.ver, location.href).href, BOT.name);
+  if (ok) { markBot(); saveBot(); }
+  return ok;
+}
+async function enterBot() {
+  const cur = (LS.get('wrlsim.cadbot') || '').split('|');
+  const mine = cur[0] === TASK && cur[1] === BOT.ver && cur[2] === cw.__wrl.modelName() && cw.__wrl.modelParts() > 0;
+  if (mine) return;
+  let saved = null; try { saved = JSON.parse(LS.get(SAVE_KEY) || 'null'); } catch (e) {}
+  if (saved && saved.v === BOT.ver && saved.text) {
+    st('이 종목에서 만들던 로봇과 프로그램을 불러오는 중…');
+    if (await cw.__wrl.loadModel(null, BOT.name, saved.text) && cw.__wrl.modelParts() > 0) { markBot(); return; }
+  }
+  await loadDefaultBot();
+}
+// 이 종목에서 만든 도면 + 블록 프로그램을 종목별로 저장 (다른 종목을 다녀와도 그대로)
+function saveBot() {
+  if (!BOT || !cw || !cw.__wrl || busy) return;
+  const cur = (LS.get('wrlsim.cadbot') || '').split('|');
+  if (cur[0] !== TASK) return;
+  const text = cw.__wrl.exportText();
+  if (text && text.length > 40) { LS.set(SAVE_KEY, JSON.stringify({ v: BOT.ver, t: Date.now(), text })); LS.set('wrlsim.cadbot', [TASK, BOT.ver, cw.__wrl.modelName()].join('|')); }
+}
+setInterval(() => { if (ready) saveBot(); }, 15000);
+addEventListener('pagehide', () => { if (ready) saveBot(); });
+document.addEventListener('visibilitychange', () => { if (ready && document.hidden) saveBot(); });
 const post = m => { try { parent.postMessage(Object.assign({ source: 'wrlsim' }, m), '*'); } catch (e) {} };
 $('#title').textContent = P.get('title') || (TASK === 'sumo' ? '스모봇' : TASK === 'line' ? '라인 팔로잉' : 'AI 오셀로');
 $('#oppTxt').innerHTML = TASK === 'line' ? (P.get('opp') ? `가상 팀 <b class="op">${esc(P.get('opp'))}</b> · ` : '') + (TARGET ? `목표 <b class="op">${TARGET}점</b> 넘기기` : '')
   : (P.get('opp') ? `상대 팀 <b class="op">${esc(P.get('opp'))}</b> · ` : '') + `상대 ${1 + Math.round(LEVEL * 4)}단계 / 5`;
-$('#exit').addEventListener('click', () => post({ type: 'wrlsim:exit' }));
+$('#exit').addEventListener('click', () => { if (ready) saveBot(); post({ type: 'wrlsim:exit' }); });
 $('#helpBtn').addEventListener('click', () => $('#help').classList.toggle('on'));
 $('#help').innerHTML = TASK === 'line' ? `<h4>라인 팔로잉 진행 방법</h4>
   ① 처음 열면 <b>라인 팔로잉 로봇(LC)</b>이 불려 옵니다 (모형만 · 블록 프로그램은 직접 만드세요). 워드블럭으로 선 따라가기 프로그램을 만드세요.<br>
@@ -94,25 +132,13 @@ async function boot() {
     try { cw = fr.contentWindow; void cw.document; if (window.WRL_I18N) WRL_I18N.attach(cw.document); } catch (e) { return fail('캐드 시뮬레이터에 연결할 수 없습니다 (다른 사이트 주소).'); }
     for (let i = 0; i < 120 && !(cw.__sim && cw.__umc && cw.__wb); i++) await new Promise(r => setTimeout(r, 250));
     if (!cw.__sim) return fail('캐드 시뮬레이터가 열리지 않았습니다.');
-    if (!cw.__wrl) await new Promise((res, rej) => { const s = cw.document.createElement('script'); s.src = new URL('wrl-addon.js?v=10', location.href).href; s.onload = res; s.onerror = rej; cw.document.head.appendChild(s); });
+    if (!cw.__wrl) await new Promise((res, rej) => { const s = cw.document.createElement('script'); s.src = new URL('wrl-addon.js?v=11', location.href).href; s.onload = res; s.onerror = rej; cw.document.head.appendChild(s); });
     if (TASK === 'line' && !cw.__wrlLine) await new Promise((res, rej) => { const s = cw.document.createElement('script'); s.src = new URL('wrl-line.js?v=3', location.href).href; s.onload = res; s.onerror = rej; cw.document.head.appendChild(s); });
     await cw.__wrl.ready();
     const mat = TASK === 'othello_ai' ? 'othello_ai' : null;
-    // AI 오셀로: 오셀로 AI 로봇(OTAI.ldr — 로봇 모형 · 허스키렌즈 설정 · 예제 블록 프로그램)을 처음 한 번 불러옵니다
-    // 스모: 스모 로봇(CUP — 로봇 모형만)을 처음 한 번 불러옵니다
-    if (TASK === 'sumo') {
-      let done = false; try { done = localStorage.getItem('wrlsim.sumobot') === SUMO_VER && cw.__wrl.modelParts() > 0; } catch (e) {}
-      if (!done) { st('스모 로봇(CUP)을 불러오는 중…'); const ok = await cw.__wrl.loadModel(new URL('robots/SUMO-CUP.ldr?v=' + SUMO_VER, location.href).href, 'CUP.ldr'); if (ok) try { localStorage.setItem('wrlsim.sumobot', SUMO_VER); } catch (e) {} }
-    }
-    // 라인 팔로잉: 기본 로봇 LC(모형만 · 코드 없음)를 처음 한 번 불러옵니다
-    if (TASK === 'line') {
-      let done = false; try { done = localStorage.getItem('wrlsim.lcbot') === LC_VER && cw.__wrl.modelParts() > 0; } catch (e) {}
-      if (!done) { st('라인 팔로잉 로봇(LC)을 불러오는 중…'); const ok = await cw.__wrl.loadModel(new URL('robots/LC-RR.ldr?v=' + LC_VER, location.href).href, 'LC.ldr'); if (ok) try { localStorage.setItem('wrlsim.lcbot', LC_VER); } catch (e) {} }
-    }
-    if (TASK === 'othello_ai') {
-      let done = false; try { done = localStorage.getItem('wrlsim.otai') === OTAI_VER && cw.__wrl.modelParts() > 0; } catch (e) {}
-      if (!done) { st('오셀로 AI 로봇(OTAI)을 불러오는 중…'); const ok = await cw.__wrl.loadModel(new URL('robots/OTAI.ldr?v=' + OTAI_VER, location.href).href, 'OTAI.ldr'); if (ok) try { localStorage.setItem('wrlsim.otai', OTAI_VER); } catch (e) {} }
-    }
+    // 종목마다 기본 로봇을 씁니다. 캐드는 도면 하나를 모든 종목이 함께 쓰므로, 다른 종목에서 바꾼 로봇이 남아 있으면
+    // 이 종목에서 만들던 도면(저장본)이나 기본 로봇으로 바꿉니다. 이 종목에서 만들던 것은 종목별로 따로 저장합니다.
+    if (BOT) await enterBot();
     const r = await cw.__wrl.setup(TASK, { level: LEVEL, mat, div: DIV, load: TASK === 'line', lock: MODE === 'match' });
     fr.hidden = false; $('#msg').remove(); ready = true;
     $('#go').disabled = false; $('#go').textContent = TASK === 'sumo' ? '▶ 1판 시작' : TASK === 'line' ? '▶ 경기 시작 (3분)' : '▶ 경기 시작';
@@ -137,15 +163,15 @@ $('#go').addEventListener('click', async () => {
 document.addEventListener('click', async e => {
   if (e.target && e.target.id === 'reSUMO' && cw && !busy) {
     if (!confirm('스모 로봇(CUP)을 다시 불러올까요? 지금 캐드의 로봇 모형과 블록 프로그램이 바뀝니다 (캐드의 🕘 기록에서 되돌릴 수 있음).')) return;
-    st('스모 로봇(CUP)을 불러오는 중…'); await cw.__wrl.loadModel(new URL('robots/SUMO-CUP.ldr?v=' + SUMO_VER, location.href).href, 'CUP.ldr'); await cw.__wrl.setup(TASK, { level: LEVEL, lock: MODE === 'match' }); st('스모 로봇을 불러왔습니다');
+    await loadDefaultBot(); await cw.__wrl.setup(TASK, { level: LEVEL, lock: MODE === 'match' }); st('스모 로봇을 불러왔습니다');
   }
   if (e.target && e.target.id === 'reLC' && cw && !busy) {
     if (!confirm('라인 팔로잉 로봇(LC)을 다시 불러올까요? 지금 캐드의 로봇 모형이 바뀝니다 (블록 프로그램은 그대로 · 캐드의 🕘 기록에서 되돌릴 수 있음).')) return;
-    st('라인 팔로잉 로봇(LC)을 불러오는 중…'); await cw.__wrl.loadModel(new URL('robots/LC-RR.ldr?v=' + LC_VER, location.href).href, 'LC.ldr'); await cw.__wrl.setup(TASK, { level: LEVEL, div: DIV, lock: MODE === 'match' }); st('라인 팔로잉 로봇을 불러왔습니다');
+    await loadDefaultBot(); await cw.__wrl.setup(TASK, { level: LEVEL, div: DIV, lock: MODE === 'match' }); st('라인 팔로잉 로봇을 불러왔습니다');
   }
   if (e.target && e.target.id === 'reOTAI' && cw && !busy) {
     if (!confirm('오셀로 AI 로봇(OTAI)을 다시 불러올까요? 지금 캐드의 로봇과 블록 프로그램이 바뀝니다 (캐드의 🕘 기록에서 되돌릴 수 있음).')) return;
-    st('오셀로 AI 로봇(OTAI)을 불러오는 중…'); await cw.__wrl.loadModel(new URL('robots/OTAI.ldr?v=' + OTAI_VER, location.href).href, 'OTAI.ldr'); await cw.__wrl.setup(TASK, { level: LEVEL, mat: 'othello_ai', lock: MODE === 'match' }); st('오셀로 AI 로봇을 불러왔습니다');
+    await loadDefaultBot(); await cw.__wrl.setup(TASK, { level: LEVEL, mat: 'othello_ai', lock: MODE === 'match' }); st('오셀로 AI 로봇을 불러왔습니다');
   }
 });
 addEventListener('message', e => {

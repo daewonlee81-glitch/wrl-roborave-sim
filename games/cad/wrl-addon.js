@@ -194,19 +194,47 @@
     async ready() {
       for (let i = 0; i < 300; i++) { const l = document.querySelector('#loading'); if (l && l.hidden) break; await new Promise(r => setTimeout(r, 200)); }
       await new Promise(r => setTimeout(r, 300));
-      for (const b of document.querySelectorAll('button')) { const box = b.closest('div'); if (box && /로딩이 끝났습니다|Loading (is )?(done|finished)/i.test(box.textContent) && /확인|OK/.test(b.textContent)) b.click(); }
+      // 첫 로딩 끝 알림(✅ …)은 언어와 관계없이 닫음
+      for (const b of document.querySelectorAll('button')) { const box = b.closest('div'); if (box && /✅/.test(box.textContent) && box.querySelectorAll('button').length === 1 && box.offsetParent) b.click(); }
+      await this.waitLoaded();
     },
-    async loadModel(url, name) {
+    // 부품 형상을 다 불러올 때까지 기다림 — 캐드 상태 줄의 '불러오는 중'(캐드의 현재 언어)과 3D 부품 수가 멈추는 것으로 판단
+    async waitLoaded(maxMs = 90000) {
+      const stem = k => { try { return String(U.T(k)).replace(/[…\.]+$/, ''); } catch (e) { return k; } };
+      const busy = [stem('불러오는 중…'), stem('라이브러리 불러오는 중…'), '불러오는 중', 'Loading'];
+      const st = () => (document.querySelector('#status') || {}).textContent || '';
+      const meshes = () => { let n = 0; try { window.__cad.root.traverse(o => { if (o.isMesh) n++; }); } catch (e) {} return n; };
+      let last = -1, same = 0;
+      for (let t = 0; t < maxMs; t += 250) {
+        const s = st(), m = meshes(), loading = busy.some(k => k && s.includes(k));
+        if (loading) post({ type: 'loading', msg: s });
+        same = (!loading && m === last) ? same + 1 : 0; last = m;
+        if (same >= 4) return true;
+        await new Promise(r => setTimeout(r, 250));
+      }
+      return false;
+    },
+    // 캐드 '열기'와 같은 방식으로 .ldr 도면을 엽니다 (로봇 모형 · 시뮬레이터 설정 · 블록 프로그램). text를 주면 그 내용으로 엶
+    async loadModel(url, name, text) {
       const cad = window.__cad, inp = document.querySelector('#fileIn'); if (!cad || !inp) return false;
-      const r = await fetch(url, { cache: 'no-cache' }); if (!r.ok) return false;
-      const f = new File([await r.blob()], name), before = cad.model;
+      let blob;
+      if (text != null) blob = new Blob([text], { type: 'text/plain' });
+      else { const r = await fetch(url, { cache: 'no-cache' }); if (!r.ok) return false; blob = await r.blob(); }
+      const f = new File([blob], name), before = cad.model;
       const dt = new DataTransfer(); dt.items.add(f); inp.files = dt.files; inp.dispatchEvent(new Event('change', { bubbles: true }));
       for (let i = 0; i < 150 && cad.model === before; i++) await new Promise(res => setTimeout(res, 200));
-      // 부품 형상을 다 불러올 때까지 (상태 줄이 '불러오는 중…'에서 'N개 부품 불러옴'으로 바뀜)
-      const st = () => (document.querySelector('#status') || {}).textContent || '';
-      for (let i = 0; i < 400 && /불러오는 중|Loading/i.test(st()); i++) { post({ type: 'loading', msg: st() }); await new Promise(res => setTimeout(res, 250)); }
-      await new Promise(res => setTimeout(res, 400));
+      await new Promise(res => setTimeout(res, 300));
+      await this.waitLoaded();
       return cad.model !== before;
+    },
+    modelName() { try { return window.__cad.model.name || ''; } catch (e) { return ''; } },
+    // 지금 캐드의 도면 + 블록 프로그램을 .ldr 글자로 (캐드의 '.ldr 텍스트'와 같은 내용)
+    exportText() {
+      try {
+        const b = document.querySelector('#btnExport'), dlg = document.querySelector('#exportDlg'), ta = document.querySelector('#dlgText');
+        if (!b || !b.onclick || !dlg || !ta) return '';
+        const was = dlg.hidden; b.onclick(); const t = ta.value; dlg.hidden = was; return t;
+      } catch (e) { return ''; }
     },
     modelParts() { try { return (window.__cad.model.parts || []).length; } catch (e) { return 0; } },
     async ensurePhysics() { if (!U.sim().physics) await S.setPhysics(true); },
