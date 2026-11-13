@@ -1,5 +1,6 @@
 import { LEAGUES, EVENTS, ROUND_NAMES, aiSkill } from './events.js';
 import { ICONS, LEAGUE_ICONS } from './icons.js';
+const MASCOT = k => `<img class="mascot" src="img/mascot/${k}.png" alt="" draggable="false">`;
 import * as T from './tournament.js';
 
 const $ = s => document.querySelector(s);
@@ -30,14 +31,24 @@ window.addEventListener('hashchange', route);
 const go = h => { if (location.hash === h) route(); else location.hash = h; };
 
 /* ---------------- 첫 화면 ---------------- */
+function dday() { const d = Math.ceil((new Date('2027-02-19T00:00:00+09:00') - Date.now()) / 864e5); return d > 0 ? 'D-' + d : d === 0 ? 'D-DAY' : '대회 종료'; }
 function home() {
   document.title = 'WRL · RoboRAVE 대회 시뮬레이터';
   app.innerHTML = `
   <section class="home">
     <header class="hero">
-      <div class="kicker">IREA · 국제로봇교육협의회</div>
-      <h1>WRL · RoboRAVE<br><span>대회 시뮬레이터</span></h1>
+      <img class="wrl-logo" src="img/wrl-logo.png" alt="WRL">
+      <div class="kicker">INTERNATIONAL ROBOTICS COMPETITION · GOYANG, KOREA</div>
+      <h1>WORLD ROBOT<br><span class="gold">LEAGUE 2027</span></h1>
+      <div class="with">with RoboRAVE Korea Open 2027</div>
+      <div class="simname">대회 시뮬레이터</div>
       <p>종목을 고르고 가상 상대와 겨뤄 보세요. 이길수록 다음 상대가 강해집니다.</p>
+      <div class="chips">
+        <div class="chip"><b>FEB 19 – 21, 2027</b><small>FRI – SUN · 3 DAYS</small></div>
+        <div class="chip"><b>Goyang YMCA Youth Center</b><small>GOYANG, GYEONGGI-DO, KOREA</small></div>
+        <div class="chip dday"><b>${dday()}</b><small>대회까지</small></div>
+      </div>
+      <div class="mascots">${[...LEAGUES.wrl.events, ...LEAGUES.roborave.events].map(k => `<a href="#/event/${k}" title="${esc(EVENTS[k].name)}">${MASCOT(EVENTS[k].icon)}</a>`).join('')}</div>
       <label class="team">우리 팀 이름 <input id="teamName" maxlength="16" placeholder="우리 팀" value="${esc(store.get('team', ''))}"></label>
     </header>
     <div class="leagues">
@@ -50,7 +61,7 @@ function home() {
           <div class="go">종목 고르기 →</div>
         </a>`).join('')}
     </div>
-    <footer class="foot">규정 출처: <a href="https://worldrobotleague.net/rules/" target="_blank" rel="noopener">worldrobotleague.net/rules</a> · 규정은 바뀔 수 있으니 대회 전 공식 페이지를 확인하세요 · 문의 robot-league@naver.com</footer>
+    <footer class="foot">주최 IREA 국제로봇교육협의회 · RoboRAVE Korea · 참가 신청 <a href="https://worldrobotleague.net" target="_blank" rel="noopener">worldrobotleague.net</a><br>규정 출처: <a href="https://worldrobotleague.net/rules/" target="_blank" rel="noopener">worldrobotleague.net/rules</a> · 규정은 바뀔 수 있으니 대회 전 공식 페이지를 확인하세요 · 문의 robot-league@naver.com</footer>
   </section>`;
   $('#teamName').addEventListener('change', e => store.set('team', e.target.value.trim()));
 }
@@ -67,7 +78,7 @@ function league(k) {
     <div class="grid">
       ${L.events.map(e => { const ev = EVENTS[e]; const t = T.loadT(tKey(e, divOf(ev).key));
         return `<a class="tile ${ev.status}" href="#/event/${e}">
-          <div class="ic">${ICONS[ev.icon]}</div>
+          <div class="ic">${MASCOT(ev.icon)}</div>
           <div class="nm">${esc(ev.name)}</div><div class="en">${esc(ev.en)}</div>
           <div class="bd">${playBadge(ev)}</div>
           ${ev.status === 'soon' ? '<div class="soon">준비 중</div>' : (t ? `<div class="prog">${t.state === 'champion' ? '🏆 우승' : t.state === 'out' ? '탈락' : ROUND_NAMES[t.round] + ' 진행 중'}</div>` : '')}
@@ -87,7 +98,7 @@ function eventPage(e, divKey) {
   <section class="page" style="--c:${L.color}">
     <nav class="top"><a href="#/league/${ev.league}" class="back">← ${L.name} 종목</a><span class="crumb">${esc(ev.name)}</span></nav>
     <div class="evhead">
-      <div class="ic big">${ICONS[ev.icon]}</div>
+      <div class="ic big">${MASCOT(ev.icon)}</div>
       <div><h2 class="ttl">${esc(ev.name)} <small>${esc(ev.en)}</small></h2><div class="bd">${playBadge(ev)} ${kindBadge(ev)}</div></div>
     </div>
     ${ready ? '' : `<div class="notice">이 종목은 지금 만드는 중입니다. 규정 요약은 먼저 볼 수 있고, 연습·대진표는 다음 업데이트에서 열립니다.</div>`}
@@ -134,7 +145,7 @@ function eventPage(e, divKey) {
 
 function controlsCard(ev) {
   const rows = ev.key === 'othello' || ev.icon === 'othello'
-    ? [['D패드 ↑ ↓', '전진 · 후진 (기본 50%)'], ['D패드 ← →', '제자리 회전'], ['RT', '파워 50% → 100%'], ['A · B · Y', '플리퍼 90° · 45° · 16°'], ['Y', '카메라 (키보드 C)'], ['Menu', '일시정지']]
+    ? [['D패드 ↑ ↓', '전진 · 후진 (기본 50%)'], ['D패드 ← →', '제자리 회전'], ['RT', '파워 50% → 100%'], ['A · B · Y', '플리퍼 90° · 45° · 16°'], ['키보드 C', '카메라 전환 (Y는 플리퍼)'], ['Menu', '일시정지']]
     : [['D패드 ↑ ↓', '전진 · 후진'], ['D패드 ← →', '포인트 턴'], ['D패드 대각선', '스윙턴'], ['RT', '누르는 동안 파워 100'], ['LT', '슛 (MRC Open·LEGO)'], ['RB', '조종 로봇 바꾸기'], ['Y', '카메라']];
   return `<div class="card"><h3>🎮 엑스박스 컨트롤러</h3>
     <table class="keys">${rows.map(([k, v]) => `<tr><td>${k}</td><td>${v}</td></tr>`).join('')}</table>
@@ -161,7 +172,7 @@ function bracket(e, divKey) {
   <section class="page wide" style="--c:${L.color}">
     <nav class="top"><a href="#/event/${e}/${div.key}" class="back">← ${esc(ev.name)}</a><span class="crumb">대진표${div.name ? ' · ' + esc(div.name) : ''}</span></nav>
     <div class="bhead">
-      <div class="ic">${ICONS[ev.icon]}</div>
+      <div class="ic">${MASCOT(ev.icon)}</div>
       <h2 class="ttl">${esc(ev.name)} 대진표</h2>
       <div class="sp"></div>
       <button class="btn" id="reset">새 대진표</button>

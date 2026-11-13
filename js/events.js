@@ -7,13 +7,13 @@ export const LEAGUES = {
   wrl: {
     name: 'WRL', full: 'World Robot League', sub: '월드로봇리그',
     desc: '휴머노이드 · 로봇 컬링 · 오셀로 · MRC 축구',
-    color: '#2f6bff', rulesUrl: 'https://worldrobotleague.net/rules/',
+    color: '#f2b631', rulesUrl: 'https://worldrobotleague.net/rules/',
     events: ['humanoid_battle', 'humanoid_relay', 'curling', 'othello', 'mrc'],
   },
   roborave: {
     name: 'RoboRAVE', full: 'RoboRAVE Korea Open', sub: '로보레이브 코리아 오픈',
     desc: '스모봇 · 라인 팔로잉 · 미들봇 · 사커봇 RC',
-    color: '#ff7a1a', rulesUrl: 'https://worldrobotleague.net/rules/roborave/',
+    color: '#ff8a4c', rulesUrl: 'https://worldrobotleague.net/rules/roborave/',
     events: ['sumo', 'line', 'middlebot', 'soccer_rc'],
   },
 };
