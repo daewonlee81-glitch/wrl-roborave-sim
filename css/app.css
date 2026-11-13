@@ -142,3 +142,11 @@ body.playing{overflow:hidden}
 .rcard .score{font-size:30px;font-weight:700;font-variant-numeric:tabular-nums;margin:4px 0}
 .rcard .rd{color:var(--mute);font-size:13px}
 .rcard .btns{justify-content:center}
+/* 기록 경기 순위표 */
+table.rank{width:100%;border-collapse:collapse;font-size:15px}
+table.rank td{border-bottom:1px solid var(--line);padding:9px 8px}
+table.rank td.rk{width:56px;text-align:center;font-weight:800;color:var(--mute)}
+table.rank td.sc{text-align:right;font-weight:700;white-space:nowrap}
+table.rank tr.me td{background:color-mix(in srgb,var(--c,#f5c542) 22%,transparent);color:#fff}
+table.rank tr.me td:first-child{border-radius:8px 0 0 8px}table.rank tr.me td:last-child{border-radius:0 8px 8px 0}
+table.rank .nat{font-size:11px;color:var(--mute);border:1px solid var(--line);border-radius:4px;padding:1px 5px;margin-right:6px}

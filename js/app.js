@@ -18,6 +18,10 @@ const kindBadge = ev => ev.kind === 'versus' ? '<span class="badge">⚔ 가상 �
 const divOf = (ev, key) => (ev.divisions || []).find(d => d.key === key) || (ev.divisions || [])[0] || { key: 'std', name: '' };
 const tKey = (evKey, div) => evKey + '.' + div;
 const SHOW_EN = !(window.WRL_I18N && window.WRL_I18N.lang === 'en'); // 영어 화면에서는 영문 부제가 겹치므로 숨김
+const isRec = ev => ev.format === 'record';
+const rKey = (evKey, div) => 'rec.' + evKey + '.' + div;
+const recOpt = (ev, divKey) => { const r = ev.record || {}; return { tries: r.tries || 3, first: r.first || 400, bonus: typeof r.bonus === 'object' ? (r.bonus[divKey] || 0) : (r.bonus || 0) }; };
+const medal = n => n === 1 ? '🥇' : n === 2 ? '🥈' : n === 3 ? '🥉' : '';
 const eff = (ev, div) => Object.assign({}, ev, { mixed: false, engine: div.engine || ev.engine, play: div.play || ev.play, task: div.task || ev.task });
 
 /* ---------------- 라우팅 ---------------- */
@@ -26,7 +30,7 @@ function route() {
   closeGame(true);
   if (!h.length) return home();
   if (h[0] === 'league' && LEAGUES[h[1]]) return league(h[1]);
-  if (h[0] === 'event' && EVENTS[h[1]]) return h[3] === 'bracket' ? bracket(h[1], h[2]) : eventPage(h[1], h[2]);
+  if (h[0] === 'event' && EVENTS[h[1]]) return h[3] === 'bracket' ? bracket(h[1], h[2]) : h[3] === 'ranking' ? ranking(h[1], h[2]) : eventPage(h[1], h[2]);
   return home();
 }
 window.addEventListener('hashchange', route);
@@ -78,25 +82,28 @@ function league(k) {
     <h2 class="ttl">${L.name} <small>${esc(L.full)}</small></h2>
     <p class="lead">종목 아이콘을 누르면 규정 요약과 연습·대진표 도전 화면으로 갑니다.</p>
     <div class="grid">
-      ${L.events.map(e => { const ev = EVENTS[e]; const t = T.loadT(tKey(e, divOf(ev).key));
+      ${L.events.map(e => { const ev = EVENTS[e], dk = divOf(ev, store.get('div.' + e, null)).key; const t = T.loadT(tKey(e, dk));
         return `<a class="tile ${ev.status}" href="#/event/${e}">
           <div class="ic">${MASCOT(ev.icon)}</div>
           <div class="nm">${esc(ev.name)}</div>${SHOW_EN ? `<div class="en">${esc(ev.en)}</div>` : ''}
           <div class="bd">${playBadge(ev)}</div>
-          ${ev.status === 'soon' ? '<div class="soon">준비 중</div>' : (t ? `<div class="prog">${t.state === 'champion' ? '🏆 우승' : t.state === 'out' ? '탈락' : ROUND_NAMES[t.round] + ' 진행 중'}</div>` : '')}
+          ${ev.status === 'soon' ? '<div class="soon">준비 중</div>' : isRec(ev) ? recProg(T.loadT(rKey(e, dk))) : (t ? `<div class="prog">${t.state === 'champion' ? '🏆 우승' : t.state === 'out' ? '탈락' : ROUND_NAMES[t.round] + ' 진행 중'}</div>` : '')}
         </a>`; }).join('')}
     </div>
   </section>`;
 }
 
+const recProg = r => r && r.tries.length ? `<div class="prog">${r.tries.length >= r.max ? `기록 끝 · ${T.myRank(r)}위` : `기록 ${r.tries.length}/${r.max} · 최고 ${r.teams[0].best}점`}</div>` : '';
 /* ---------------- 종목 로비 ---------------- */
 function eventPage(e, divKey) {
   const ev0 = EVENTS[e], L = LEAGUES[ev0.league], div = divOf(ev0, divKey || store.get('div.' + e, null));
   const ev = eff(ev0, div);
   document.title = ev.name + ' — 대회 시뮬레이터';
   const t = T.loadT(tKey(e, div.key));
+  const rec = isRec(ev) ? T.loadT(rKey(e, div.key)) : null;
   const ready = ev.status === 'ready';
   const practiceLv = store.get('lv.' + e, 0.45);
+  if (divKey) store.set('div.' + e, div.key);
   app.innerHTML = `
   <section class="page" style="--c:${L.color}">
     <nav class="top"><a href="#/league/${ev.league}" class="back">← ${L.name} 종목</a><span class="crumb">${esc(ev.name)}</span></nav>
@@ -115,7 +122,7 @@ function eventPage(e, divKey) {
       <div class="side">
         ${ev.divisions && ev.divisions.length > 1 ? `<div class="card"><h3>${ev0.mixed ? '조종형 · 자율형' : '디비전 · 경기장'}</h3>
           <select id="div">${ev.divisions.map(d => `<option value="${d.key}" ${d.key === div.key ? 'selected' : ''}>${esc(d.name)}</option>`).join('')}</select></div>` : (div.name ? `<div class="card"><h3>디비전</h3><div>${esc(div.name)}</div></div>` : '')}
-        <div class="card">
+        ${isRec(ev) ? recordCard(ev, rec, ready) : `        <div class="card">
           <h3>🏆 대진표 도전</h3>
           <p class="mute">16팀 토너먼트 · 16강 → 8강 → 4강 → 결승. 이길 때마다 상대 AI가 강해집니다.</p>
           ${t ? `<div class="tstat">${t.state === 'champion' ? '🏆 우승했습니다!' : t.state === 'out' ? `${ROUND_NAMES[t.round]}에서 탈락` : `지금: <b>${ROUND_NAMES[t.round]}</b>`}</div>` : ''}
@@ -123,7 +130,7 @@ function eventPage(e, divKey) {
             ${t && t.state === 'playing' ? `<button class="btn pri" id="cont" ${ready ? '' : 'disabled'}>이어서 하기</button><button class="btn" id="newT" ${ready ? '' : 'disabled'}>새 대진표</button>`
               : `<button class="btn pri" id="newT" ${ready ? '' : 'disabled'}>${t ? '새 대진표로 다시 도전' : '대진표 만들기'}</button>${t ? '<button class="btn" id="cont">지난 대진표 보기</button>' : ''}`}
           </div>
-        </div>
+        </div>`}
         <div class="card">
           <h3>🎯 자유 연습</h3>
           <label class="row">${ev.kind === 'versus' ? '상대 실력' : '연습 목표'} <b id="lvV">${stars(practiceLv)}</b></label>
@@ -142,8 +149,67 @@ function eventPage(e, divKey) {
     T.saveT(tKey(e, div.key), T.newTournament(myName())); go(`#/event/${e}/${div.key}/bracket`);
   });
   $('#cont')?.addEventListener('click', () => go(`#/event/${e}/${div.key}/bracket`));
+  $('#newR')?.addEventListener('click', () => {
+    if (rec && rec.tries.length && rec.tries.length < rec.max && !confirm('진행 중인 기록 경기를 지우고 새로 시작할까요?')) return;
+    const r = T.newRecord(myName(), recOpt(ev, div.key)); T.saveT(rKey(e, div.key), r); openGame(e, div, recordGame(r));
+  });
+  $('#tryR')?.addEventListener('click', () => openGame(e, div, recordGame(rec)));
+  $('#rankR')?.addEventListener('click', () => go(`#/event/${e}/${div.key}/ranking`));
   $('#practice')?.addEventListener('click', () => openGame(e, div, { mode: 'practice', level: +$('#lv').value }));
   $('#free')?.addEventListener('click', () => openGame(e, div, { mode: 'practice', level: +$('#lv').value, free: true }));
+}
+
+const recordGame = r => ({ mode: 'match', record: true, level: 0.5, tryNo: r.tries.length + 1, of: r.max });
+function recordCard(ev, rec, ready) {
+  const o = ev.record || {}, n = o.tries || 3;
+  const st = rec ? (rec.tries.length >= rec.max ? `기록 경기 끝 — 최고 <b>${rec.teams[0].best}점</b> · 최종 <b>${medal(T.myRank(rec))}${T.myRank(rec)}위</b> / ${rec.teams.length}팀`
+    : rec.tries.length ? `${rec.tries.length}/${rec.max}번 시도 · 최고 <b>${rec.teams[0].best}점</b> · 지금 <b>${T.myRank(rec)}위</b>` : `0/${rec.max}번 시도`) : '';
+  const playing = rec && rec.tries.length < rec.max;
+  return `<div class="card">
+          <h3>⏱ 기록 경기</h3>
+          <p class="mute">대진표 없이 점수로 겨룹니다. ${n}번 시도해 가장 좋은 점수로 16팀 순위가 정해집니다 (첫 왕복 400점 + 보너스 공).</p>
+          ${st ? `<div class="tstat">${st}</div>` : ''}
+          <div class="btns">
+            ${playing ? `<button class="btn pri" id="tryR" ${ready ? '' : 'disabled'}>${rec.tries.length + 1}번째 시도 ▶</button><button class="btn" id="rankR">순위표</button><button class="btn" id="newR" ${ready ? '' : 'disabled'}>새 기록 경기</button>`
+              : `<button class="btn pri" id="newR" ${ready ? '' : 'disabled'}>${rec ? '새 기록 경기 시작' : '기록 경기 시작'}</button>${rec ? '<button class="btn" id="rankR">지난 순위표 보기</button>' : ''}`}
+          </div>
+        </div>`;
+}
+
+/* ---------------- 기록 경기 순위표 ---------------- */
+function ranking(e, divKey) {
+  const ev0 = EVENTS[e], L = LEAGUES[ev0.league], div = divOf(ev0, divKey);
+  const ev = eff(ev0, div);
+  const key = rKey(e, div.key);
+  const r = T.loadT(key);
+  if (!r) return go(`#/event/${e}/${div.key}`);
+  document.title = ev.name + ' 순위표 — 대회 시뮬레이터';
+  const list = T.ranking(r), mine = T.myRank(r), done = r.tries.length >= r.max;
+  let rank = 0, prev = null;
+  const rows = list.map((tm, i) => { if (tm.best !== prev) { rank = i + 1; prev = tm.best; }
+    return `<tr class="${tm.me ? 'me' : ''}"><td class="rk">${tm.best == null ? '—' : medal(rank) || rank}</td><td><span class="nat">${tm.nat}</span> ${esc(tm.name)}</td><td class="sc">${tm.best == null ? '아직 기록 없음' : tm.best + '점'}</td></tr>`; }).join('');
+  app.innerHTML = `
+  <section class="page" style="--c:${L.color}">
+    <nav class="top"><a href="#/event/${e}/${div.key}" class="back">← ${esc(ev.name)}</a><span class="crumb">순위표${div.name ? ' · ' + esc(div.name) : ''}</span></nav>
+    <div class="bhead">
+      <div class="ic">${MASCOT(ev.icon)}</div>
+      <h2 class="ttl">${esc(ev.name)} 순위표</h2>
+      <div class="sp"></div>
+      <button class="btn" id="newR">새 기록 경기</button>
+    </div>
+    <div class="next ${done ? (mine && mine <= 3 ? 'win' : 'out') : ''}">
+      <div><div class="rd">${done ? `최종 ${medal(mine)}${mine}위` : `${r.tries.length + 1}번째 시도 / ${r.max}`}</div>
+      <div class="vs">${r.tries.length ? `내 기록: ${r.tries.map(v => `<b>${v}점</b>`).join(' · ')} → 최고 <b>${r.teams[0].best}점</b>` : '아직 시도하지 않았습니다.'}</div>
+      <div class="mute">가상 팀의 점수는 ${r.max}번 시도 중 최고 점수입니다.</div></div>
+      ${done ? '' : `<button class="btn pri big" id="tryR">${r.tries.length + 1}번째 시도 ▶</button>`}
+    </div>
+    <div class="card"><table class="rank">${rows}</table></div>
+  </section>`;
+  $('#tryR')?.addEventListener('click', () => openGame(e, div, recordGame(r)));
+  $('#newR').addEventListener('click', () => {
+    if (!done && r.tries.length && !confirm('진행 중인 기록 경기를 지우고 새로 시작할까요?')) return;
+    const n = T.newRecord(myName(), recOpt(ev, div.key)); T.saveT(key, n); ranking(e, div.key);
+  });
 }
 
 function controlsCard(ev, dk) {
@@ -215,13 +281,13 @@ function bracket(e, divKey) {
 let GAME = null;
 function gameUrl(ev, div, o) {
   const p = new URLSearchParams({ embed: '1', mode: o.mode });
-  const title = `${ev.name}${div.name ? ' · ' + div.name : ''}` + (o.mode === 'match' ? ` — ${ROUND_NAMES[o.round]}` : ' — 연습');
+  const title = `${ev.name}${div.name ? ' · ' + div.name : ''}` + (o.record ? ` — 기록 도전 ${o.tryNo}/${o.of}` : o.mode === 'match' ? ` — ${ROUND_NAMES[o.round]}` : ' — 연습');
   p.set('title', title);
   if (o.opp) p.set('opp', `${o.opp.name} (${o.opp.nat})`);
   if (o.free) p.set('free', '1');
   if (ev.engine === 'rc') { p.set('rs', div.rs); p.set('ai', aiSkill('rc', o.level)); p.set('mate', 0.75); return 'games/rc/index.html?' + p; }
   p.set('event', ev.key || ''); p.set('div', div.key || ''); p.set('level', o.level); if (ev.task) p.set('task', ev.task);
-  const tg = targetOf(ev.engine, o.level, ev.task); if (tg) p.set('target', tg);
+  const tg = o.record ? 0 : targetOf(ev.engine, o.level, ev.task); if (tg) p.set('target', tg);
   return `games/${ev.engine}/index.html?` + p;
 }
 function openGame(e, div, o) {
@@ -240,7 +306,7 @@ function closeGame(silent) {
 }
 window.addEventListener('message', ev => {
   const d = ev.data; if (!d || d.source !== 'wrlsim' || !GAME) return;
-  if (d.type === 'wrlsim:exit') { const g = GAME; closeGame(); if (g.o.mode === 'match') bracket(g.e, g.div.key); }
+  if (d.type === 'wrlsim:exit') { const g = GAME; closeGame(); if (g.o.record) ranking(g.e, g.div.key); else if (g.o.mode === 'match') bracket(g.e, g.div.key); }
   if (d.type === 'wrlsim:result') showResult(d);
 });
 
@@ -249,8 +315,17 @@ function showResult(d) {
   const ev = EVENTS[g.e];
   const label = d.result === 'win' ? '승리!' : d.result === 'loss' ? '패배' : '무승부';
   const sc = d.score ? `<div class="score">${d.score[0]} : ${d.score[1]}</div>` : '';
-  let body = '', btns = '';
-  if (g.o.mode === 'match') {
+  let body = '', btns = '', lab = null, cls = d.result;
+  if (g.o.record) {
+    const key = rKey(g.e, g.div.key), r = T.loadT(key);
+    const v = Math.max(0, Math.round(+(d.score && d.score[0]) || 0));
+    if (r && r.tries.length < r.max) { T.addTry(r, v); T.saveT(key, r); }
+    const rr = r || { tries: [v], max: 1, teams: [{ best: v }] }, rk = r ? T.myRank(r) : null;
+    lab = `${v}점`; cls = rk && rk <= 3 ? 'win' : 'draw';
+    const left = rr.max - rr.tries.length;
+    body = `${rr.tries.length}번째 시도 ${v}점 · 최고 <b>${rr.teams[0].best}점</b>` + (rk ? ` · ${left ? '지금' : '최종'} <b>${medal(rk)}${rk}위</b> / ${rr.teams.length}팀` : '');
+    btns = (left ? `<button class="btn pri" data-a="nexttry">${rr.tries.length + 1}번째 시도 ▶</button>` : '') + `<button class="btn${left ? '' : ' pri'}" data-a="ranking">순위표 보기</button>`;
+  } else if (g.o.mode === 'match') {
     const key = tKey(g.e, g.div.key); const t = T.loadT(key);
     if (t && t.state === 'playing') {
       const r0 = t.round;
@@ -266,7 +341,7 @@ function showResult(d) {
   }
   $('#result')?.remove();
   const el = document.createElement('div'); el.id = 'result';
-  el.innerHTML = `<div class="rcard ${d.result}"><div class="rl">${label}</div>${sc}<div class="rd">${esc(d.detail || '')}</div><p>${body}</p><div class="btns">${btns}</div></div>`;
+  el.innerHTML = `<div class="rcard ${cls}"><div class="rl">${lab || label}</div>${lab ? '' : sc}<div class="rd">${esc(d.detail || '')}</div><p>${body}</p><div class="btns">${btns}</div></div>`;
   document.body.appendChild(el);
   el.addEventListener('click', x => {
     const a = x.target.dataset.a; if (!a) return;
@@ -275,6 +350,8 @@ function showResult(d) {
     closeGame();
     if (a === 'bracket') { const h = `#/event/${gg.e}/${gg.div.key}/bracket`; return location.hash === h ? bracket(gg.e, gg.div.key) : go(h); }
     if (a === 'lobby') return eventPage(gg.e, gg.div.key);
+    if (a === 'ranking') { const h = `#/event/${gg.e}/${gg.div.key}/ranking`; return location.hash === h ? ranking(gg.e, gg.div.key) : go(h); }
+    if (a === 'nexttry') { const r = T.loadT(rKey(gg.e, gg.div.key)); if (r && r.tries.length < r.max) return openGame(gg.e, gg.div, recordGame(r)); return ranking(gg.e, gg.div.key); }
     if (a === 'next') { const t = T.loadT(tKey(gg.e, gg.div.key)); const m = T.myMatch(t); if (m) openGame(gg.e, gg.div, { mode: 'match', level: T.levelOf(t.round), opp: T.opponentOf(t, m), round: t.round }); }
   });
 }

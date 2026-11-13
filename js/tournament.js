@@ -79,3 +79,33 @@ const KEY = k => 'wrlsim.t.' + k;
 export function loadT(k) { try { const s = localStorage.getItem(KEY(k)); return s ? JSON.parse(s) : null; } catch (e) { return null; } }
 export function saveT(k, t) { try { localStorage.setItem(KEY(k), JSON.stringify(t)); } catch (e) {} }
 export function clearT(k) { try { localStorage.removeItem(KEY(k)); } catch (e) {} }
+
+/* ---------------- 기록 경기 (대진표 없이 점수 순위) ----------------
+   정해진 횟수(tries)를 시도해 가장 좋은 점수로 16팀 순위를 매깁니다.
+   가상 팀의 점수는 숨은 실력으로 만들되 실제 대회처럼 왕복을 못 마친 팀 · 왕복만 마친 팀 · 보너스까지 한 팀이 섞이게 합니다. */
+export function newRecord(myName, opt) {
+  const { tries = 3, first = 400, bonus = 0, step = 5 } = opt || {};
+  const pool = shuffle(TEAM_POOL.slice()).slice(0, 15);
+  const teams = [{ id: 0, nat: 'KOR', name: myName || '우리 팀', me: true, best: null }];
+  const q = v => Math.round(v / step) * step;
+  pool.forEach(([nat, name], i) => {
+    const r = rnd(0.15, 1); let best = 0;
+    for (let k = 0; k < tries; k++) {
+      const luck = rnd(0.55, 1.05) * r;
+      const s = luck < 0.5 ? q(first * Math.max(0, luck / 0.5) * rnd(0.35, 0.95)) : q(first + bonus * Math.min(1, (luck - 0.5) / 0.5) * rnd(0.5, 1));
+      best = Math.max(best, s);
+    }
+    teams.push({ id: i + 1, nat, name, best });
+  });
+  return { type: 'record', teams, tries: [], max: tries, created: Date.now() };
+}
+export function addTry(rec, score) {
+  if (rec.tries.length >= rec.max) return rec;
+  rec.tries.push(score);
+  rec.teams[0].best = Math.max(rec.teams[0].best ?? 0, score);
+  return rec;
+}
+export function ranking(rec) {
+  return rec.teams.slice().sort((a, b) => (b.best ?? -1) - (a.best ?? -1) || (a.me ? -1 : b.me ? 1 : 0));
+}
+export function myRank(rec) { return rec.teams[0].best == null ? null : ranking(rec).findIndex(t => t.me) + 1; }

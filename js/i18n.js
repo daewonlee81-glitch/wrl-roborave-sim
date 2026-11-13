@@ -186,7 +186,11 @@
     return s;
   }
   if (me && me.hasAttribute('data-langsel') && window.top === window) {
-    var put = function () { if (!document.getElementById('wrlLangSel')) document.body.appendChild(selector()); };
+    var put = function () {
+      if (document.getElementById('wrlLangSel')) return;
+      var css = document.createElement('style'); css.textContent = 'body.playing #wrlLangSel{display:none}'; // 경기 화면 위에서는 숨김
+      document.head.appendChild(css); document.body.appendChild(selector());
+    };
     if (document.body) put(); else document.addEventListener('DOMContentLoaded', put);
   }
 

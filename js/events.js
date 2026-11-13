@@ -103,6 +103,8 @@ export const EVENTS = {
   line: {
     name: '라인 팔로잉', en: 'Line Following', league: 'roborave', icon: 'line',
     play: 'code', kind: 'record', engine: 'cad', task: 'line', status: 'ready',
+    // 기록 경기: 대진표 없이 3번 시도 중 최고 점수로 순위 (첫 왕복 400점 + 보너스 공 개수)
+    format: 'record', record: { tries: 3, first: 400, bonus: { es: 75, ms: 125, hs: 200 } },
     src: 'https://worldrobotleague.net/rules/roborave/',
     divisions: [{ key: 'es', name: 'ES (초등) — 교차로 없음 · 선 폭 1.25 cm' }, { key: 'ms', name: 'MS (중등) — 교차로 1개 · 선 폭 1.25 cm' }, { key: 'hs', name: 'HS · UP (고등 · 대학) — 교차로 2개 · 선 폭 0.75 cm' }],
     rules: [
