@@ -34,14 +34,14 @@ export const EVENTS = {
   },
   humanoid_relay: {
     name: '휴머노이드 릴레이', en: 'Humanoid Relay', league: 'wrl', icon: 'humanoid_relay',
-    play: 'control', kind: 'record', engine: 'humanoid', status: 'soon',
+    play: 'control', kind: 'record', engine: 'relay', status: 'ready',
     src: 'https://worldrobotleague.net/rules/humanoid-relay/',
     rules: [
       '새 종목 — 체급 구분 없이 모든 선수가 함께 겨루는 통합 리그',
       '대회 당일 선수끼리 연합(얼라이언스)을 만들어 미션을 함께 풀고 기록으로 순위를 정합니다',
       '세부 규정(코스·미션·시간·점수)은 아직 공개 전입니다',
     ],
-    sim: ['세부 규정이 나오기 전까지 가상 코스(걷기 → 바통 넘기기 → 미션)로 연습합니다'],
+    sim: ['세부 규정이 나오기 전까지 대회 사진을 바탕으로 만든 코스로 연습합니다 (치수 · 벌점은 가정)', 'U자 코스(흰 레인 2줄 · 폭 60 cm · 길이 4 m)를 MAX-E1 4대가 4구간으로 이어 달림 — 내가 1구간을 맡고 나머지는 가상 팀원(AI)', '1구간 검은 막대 넘기 → 2구간 파란 트레이의 주사위를 킥으로 꺼내기 → 3구간 먼 끝 파란 콘 터치 · 돌기 → 4구간 막대 넘어 결승', '앞 로봇이 구간 경계의 다음 로봇에 닿으면 출발 · 넘어지면 일어서야 계속 · 레인 밖으로 떨어지면 구간 출발점으로', '막대는 빠른 걸음 · 대각선 · 옆걸음으로 넘으면 걸려 넘어지기 쉬움 · 기록 = 완주 시간 + 벌점(주사위 +15초 · 콘 +10초)', '라운드마다 가상 얼라이언스의 기록보다 빨리 완주해야 다음 라운드로'],
   },
   curling: {
     name: '로봇 컬링', en: 'Robot Curling', league: 'wrl', icon: 'curling',
@@ -149,9 +149,10 @@ export const EVENTS = {
 export const ROUND_NAMES = ['16강', '8강', '4강', '결승'];
 export const ROUND_LEVEL = [0.15, 0.45, 0.72, 1.0];
 // 엔진별 난이도 → 상대 AI 실력 값
-export function targetOf(engine, level, task) { if (engine === 'middlebot') return Math.round(25 + level * 195); if (task === 'line') return Math.round((100 + level * 300) / 5) * 5; return 0; }
+export function targetOf(engine, level, task) { if (engine === 'middlebot') return Math.round(25 + level * 195); if (engine === 'relay') return Math.round(185 - level * 75); if (task === 'line') return Math.round((100 + level * 300) / 5) * 5; return 0; }
 export function levelText(engine, level, task) {
   if (engine === 'middlebot' || task === 'line') return `목표 ${targetOf(engine, level, task)}점 넘기기`;
+  if (engine === 'relay') return `목표 ${targetOf(engine, level, task)}초 안에 완주`;
   if (engine === 'rc') return `AI ${Math.round(aiSkill('rc', level) * 100)}%`;
   if (engine === 'cad' || engine === 'humanoid' || engine === 'curling') return `상대 로봇 ${1 + Math.round(level * 4)}단계 / 5`;
   return `난이도 ${Math.round(level * 100)}%`;
