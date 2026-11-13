@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>미들봇 조종 시뮬레이터 — RoboRAVE MiddleBot</title>
+<script src="../../js/i18n.js"></script>
 <link rel="icon" href="../../favicon.svg" type="image/svg+xml">
 <style>
 :root{--bg:#1d2238;--panel:#262c47ee;--line:#454d74;--text:#eef0f8;--mute:#a7abc6;--gold:#ffd25a;--ok:#3fb950}
@@ -273,7 +274,7 @@ const cup = new THREE.Mesh(new THREE.CylinderGeometry(0.009, 0.013, 0.016, 16), 
 cup.position.y = -ARM.drop + 0.008; wrist.add(cup);
 const tube = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3([new THREE.Vector3(), new THREE.Vector3(0, 0.1, 0), new THREE.Vector3(0.1, 0.12, 0)]), 20, 0.0035, 6), new THREE.MeshStandardMaterial({ color: 0xe8eef2, transparent: true, opacity: 0.6 }));
 scene.add(tube);
-const label = (() => { const c = document.createElement('canvas'); c.width = 128; c.height = 64; const g = c.getContext('2d'); g.fillStyle = '#2f6bff'; g.fillRect(0, 0, 128, 64); g.fillStyle = '#fff'; g.font = 'bold 40px system-ui'; g.textAlign = 'center'; g.fillText('나', 64, 46); const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(c), depthTest: false })); s.scale.set(0.07, 0.035, 1); s.position.set(-0.075, 0.24, 0.03); robot.add(s); return s; })();
+const label = (() => { const c = document.createElement('canvas'); c.width = 128; c.height = 64; const g = c.getContext('2d'); g.fillStyle = '#2f6bff'; g.fillRect(0, 0, 128, 64); g.fillStyle = '#fff'; g.font = 'bold 40px system-ui'; g.textAlign = 'center'; g.fillText(window.WRL_I18N ? WRL_I18N.T('나') : '나', 64, 46); const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(c), depthTest: false })); s.scale.set(0.07, 0.035, 1); s.position.set(-0.075, 0.24, 0.03); robot.add(s); return s; })();
 
 // 로봇 몸체: 무게가 있는 물체(4 kg)를 바퀴 속도로 끌고 다님 → 벽에 낀 블록을 억지로 뚫고 들어가지 않음 (블록이 튕겨 날아가던 문제)
 // 흡착컵 끝: 키네마틱 구

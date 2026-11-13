@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>휴머노이드 릴레이 — WRL</title>
+<script src="../../js/i18n.js"></script>
 <link rel="icon" href="../../favicon.svg" type="image/svg+xml">
 <style>
 :root{--bg:#1d2238;--panel:#262c47ee;--line:#454d74;--text:#eef0f8;--mute:#a7abc6;--gold:#ffd25a;--ok:#3fb950;--red:#e5483b;--blue:#2f6bff}
@@ -184,7 +185,7 @@ const runners = LEGS.map((L, i) => {
   const body = new CANNON.Body({ mass: 0, type: CANNON.Body.KINEMATIC, material: mBot, shape: new CANNON.Cylinder(0.05, 0.05, 0.22, 12) }); body.allowSleep = false; world.addBody(body);
   return { i, b, feet, body, done: false, active: false, kick: null, ai: { st: 'go', wp: 0, t: 0 }, falls: 0, offT: 0 };
 });
-function relabel() { runners.forEach((r, i) => { const tag = r.b.m.tag; if (!tag) return; const c = tag.material.map.image, g = c.getContext('2d'); g.clearRect(0, 0, c.width, c.height); g.fillStyle = i === MYLEG ? '#2f6bff' : '#5a6380'; g.beginPath(); g.roundRect(2, 2, 92, 44, 10); g.fill(); g.fillStyle = '#fff'; g.font = 'bold 26px system-ui'; g.textAlign = 'center'; g.fillText(i === MYLEG ? '나' : 'AI ' + (i + 1), 48, 34); tag.material.map.needsUpdate = true; }); }
+function relabel() { runners.forEach((r, i) => { const tag = r.b.m.tag; if (!tag) return; const c = tag.material.map.image, g = c.getContext('2d'); g.clearRect(0, 0, c.width, c.height); g.fillStyle = i === MYLEG ? '#2f6bff' : '#5a6380'; g.beginPath(); g.roundRect(2, 2, 92, 44, 10); g.fill(); g.fillStyle = '#fff'; g.textAlign = 'center'; const tx = i === MYLEG ? (window.WRL_I18N ? WRL_I18N.T('나') : '나') : 'AI ' + (i + 1); let fs = 26; g.font = `bold ${fs}px system-ui`; while (fs > 12 && g.measureText(tx).width > 86) { fs -= 2; g.font = `bold ${fs}px system-ui`; } g.fillText(tx, 48, 24 + fs * 0.36); tag.material.map.needsUpdate = true; }); }
 relabel();
 // 로봇 발 · 몸을 물리 세계에 맞춤: 지금 자리에서 속도로 움직이게 하고 계산 뒤 목표 자리에 맞춤 (주사위가 튕겨 날아가지 않게)
 function physTargets(r, dt) {

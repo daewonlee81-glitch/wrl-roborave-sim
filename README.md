@@ -34,11 +34,13 @@
 | `games/humanoid/` | 휴머노이드 배틀 — MAX-E1을 Dynamic-Makers와 같은 방식으로 렌더링(ROBOTIS STEP 부품 메시 `parts-data.js` + 부품 조립 `maxe1-cad.json`), 공식 예제 모션(`maxe1-motions.json`, © ROBOTIS), 타격·다운·링아웃·KO 판정, 가상 상대 AI · 모델·모션·넘어짐 코드는 `maxe1.js` 공용 모듈 |
 | `games/curling/` | 로봇 컬링 — 3000 × 1000 mm 경기장 · 하우스 점수 · 블록 미끄럼(쿨롱 마찰, 마찰값은 가정) · 드라이브(집게 + 스트라이커) / 휴머노이드(MAX-E1 킥) 디비전 · 동시에 진행하는 가상 상대 |
 | `games/relay/` | 휴머노이드 릴레이 — U자 코스(레인 2줄 · 먼 끝 연결) · 4구간 바통 · 막대 넘기 · 주사위(물리) · 파란 콘 터치 · 레인 이탈 · 가상 팀원 AI (코스 치수 · 벌점은 가정) |
+| `js/i18n.js`, `i18n/` | 다국어(한국어 · English · 日本語 · 中文 · Español) — 화면 글자를 사전(`i18n/<언어>.json`, 원문 한국어 → 번역, 숫자는 `{n}` · 순서가 바뀌면 `{0}`·`{1}`)으로 바꾸는 런타임 번역기. 첫 화면 오른쪽 위에서 언어를 고르고, `?lang=en` 주소로도 바꿀 수 있습니다. 캐드는 `mscad.lang`으로 같은 언어를 씁니다 |
 | `img/` | WRL 2027 포스터의 로고와 종목 마스코트 |
 | `vendor/` | three.js 0.160 (MIT), cannon-es 0.20 (MIT) |
 
 경기 화면은 iframe으로 열리고, 경기가 끝나면 `postMessage({source:'wrlsim', type:'wrlsim:result', result, score})`로 결과를 돌려줍니다.
 캐드 연결 화면은 `daewonlee81-glitch.github.io`에서 열어야 합니다 (캐드와 같은 출처). 로컬에서는 두 리포를 한 폴더에 나란히 두고 그 폴더에서 웹 서버를 여세요.
+새 글자를 넣으면 `i18n/*.json`에 같은 원문 키로 번역을 더하세요 (없으면 한국어 그대로 보임). 캔버스에 그리는 글자는 `WRL_I18N.T('…')`로 바꿉니다.
 새 종목 엔진도 같은 방식(`games/<엔진>/index.html?embed=1&mode=match|practice&level=0~1`)으로 붙입니다.
 
 ## 로컬 실행

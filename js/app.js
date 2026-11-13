@@ -17,6 +17,7 @@ const playBadge = ev => ev.mixed ? '<span class="badge ctl">🎮 조종형</span
 const kindBadge = ev => ev.kind === 'versus' ? '<span class="badge">⚔ 가상 상대와 대결</span>' : '<span class="badge">⏱ 기록 도전</span>';
 const divOf = (ev, key) => (ev.divisions || []).find(d => d.key === key) || (ev.divisions || [])[0] || { key: 'std', name: '' };
 const tKey = (evKey, div) => evKey + '.' + div;
+const SHOW_EN = !(window.WRL_I18N && window.WRL_I18N.lang === 'en'); // 영어 화면에서는 영문 부제가 겹치므로 숨김
 const eff = (ev, div) => Object.assign({}, ev, { mixed: false, engine: div.engine || ev.engine, play: div.play || ev.play, task: div.task || ev.task });
 
 /* ---------------- 라우팅 ---------------- */
@@ -80,7 +81,7 @@ function league(k) {
       ${L.events.map(e => { const ev = EVENTS[e]; const t = T.loadT(tKey(e, divOf(ev).key));
         return `<a class="tile ${ev.status}" href="#/event/${e}">
           <div class="ic">${MASCOT(ev.icon)}</div>
-          <div class="nm">${esc(ev.name)}</div><div class="en">${esc(ev.en)}</div>
+          <div class="nm">${esc(ev.name)}</div>${SHOW_EN ? `<div class="en">${esc(ev.en)}</div>` : ''}
           <div class="bd">${playBadge(ev)}</div>
           ${ev.status === 'soon' ? '<div class="soon">준비 중</div>' : (t ? `<div class="prog">${t.state === 'champion' ? '🏆 우승' : t.state === 'out' ? '탈락' : ROUND_NAMES[t.round] + ' 진행 중'}</div>` : '')}
         </a>`; }).join('')}
@@ -101,7 +102,7 @@ function eventPage(e, divKey) {
     <nav class="top"><a href="#/league/${ev.league}" class="back">← ${L.name} 종목</a><span class="crumb">${esc(ev.name)}</span></nav>
     <div class="evhead">
       <div class="ic big">${MASCOT(ev.icon)}</div>
-      <div><h2 class="ttl">${esc(ev.name)} <small>${esc(ev.en)}</small></h2><div class="bd">${playBadge(ev)} ${kindBadge(ev)}</div></div>
+      <div><h2 class="ttl">${esc(ev.name)} ${SHOW_EN ? `<small>${esc(ev.en)}</small>` : ''}</h2><div class="bd">${playBadge(ev)} ${kindBadge(ev)}</div></div>
     </div>
     ${ready ? '' : `<div class="notice">이 종목은 지금 만드는 중입니다. 규정 요약은 먼저 볼 수 있고, 연습·대진표는 다음 업데이트에서 열립니다.</div>`}
     <div class="cols">

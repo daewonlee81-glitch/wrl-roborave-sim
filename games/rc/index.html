@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>대회연습용 조종 시뮬레이터 · WRL / RoboRAVE</title>
+<script src="../../js/i18n.js"></script>
 <style>
 :root{--bg:#0f1419;--panel:#161c24;--line:#2a3441;--text:#e6edf3;--mute:#8b98a8;--blue:#2f6bff;--red:#ff3b30;--acc:#3fb950}
 *{box-sizing:border-box}
@@ -819,7 +820,7 @@ function defaultRobotMesh(L,W,H,color){
 }
 function labelSprite(text,color){
   const c=document.createElement('canvas'); c.width=128; c.height=64; const x=c.getContext('2d');
-  x.fillStyle=color; x.beginPath(); x.roundRect(4,4,120,56,14); x.fill(); x.fillStyle='#fff'; x.font='bold 40px system-ui'; x.textAlign='center'; x.textBaseline='middle'; x.fillText(text,64,34);
+  x.fillStyle=color; x.beginPath(); x.roundRect(4,4,120,56,14); x.fill(); x.fillStyle='#fff'; x.font='bold 40px system-ui'; x.textAlign='center'; x.textBaseline='middle'; text=window.WRL_I18N?WRL_I18N.T(text):text; let fs=40; while(fs>14&&x.measureText(text).width>112){fs-=2;x.font='bold '+fs+'px system-ui';} x.fillText(text,64,34);
   const t=new THREE.CanvasTexture(c); t.colorSpace=THREE.SRGBColorSpace; const s=new THREE.Sprite(new THREE.SpriteMaterial({map:t,depthTest:false,transparent:true})); s.renderOrder=10; return s;
 }
 

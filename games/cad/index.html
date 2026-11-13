@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>로보메이커스 캐드 시뮬레이터 — 대회 모드</title>
+<script src="../../js/i18n.js"></script>
 <link rel="icon" href="../../favicon.svg" type="image/svg+xml">
 <style>
 *{box-sizing:border-box}
@@ -86,9 +87,11 @@ dots();
 const st = t => { $('#st').textContent = t; };
 
 async function boot() {
-  const fr = $('#cad'); fr.src = CAD_URL;
+  const fr = $('#cad');
+  try { if (window.WRL_I18N) localStorage.setItem('mscad.lang', WRL_I18N.lang); } catch (e) {}
+  fr.src = CAD_URL;
   fr.addEventListener('load', async () => {
-    try { cw = fr.contentWindow; void cw.document; } catch (e) { return fail('캐드 시뮬레이터에 연결할 수 없습니다 (다른 사이트 주소).'); }
+    try { cw = fr.contentWindow; void cw.document; if (window.WRL_I18N) WRL_I18N.attach(cw.document); } catch (e) { return fail('캐드 시뮬레이터에 연결할 수 없습니다 (다른 사이트 주소).'); }
     for (let i = 0; i < 120 && !(cw.__sim && cw.__umc && cw.__wb); i++) await new Promise(r => setTimeout(r, 250));
     if (!cw.__sim) return fail('캐드 시뮬레이터가 열리지 않았습니다.');
     if (!cw.__wrl) await new Promise((res, rej) => { const s = cw.document.createElement('script'); s.src = new URL('wrl-addon.js?v=10', location.href).href; s.onload = res; s.onerror = rej; cw.document.head.appendChild(s); });
