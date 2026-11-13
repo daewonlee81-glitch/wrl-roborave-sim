@@ -131,11 +131,11 @@ const view = $('#view');
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2)); renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 view.prepend(renderer.domElement);
-const scene = new THREE.Scene(); scene.background = new THREE.Color(0x2c3150); scene.fog = new THREE.Fog(0x2c3150, 4, 10);
+const scene = new THREE.Scene(); scene.background = new THREE.Color(0xeef2f8); scene.fog = new THREE.Fog(0xeef2f8, 5, 12);
 const camera = new THREE.PerspectiveCamera(45, 1, 0.01, 30);
 const controls = new OrbitControls(camera, renderer.domElement); controls.enabled = false; controls.target.set(0, RULE.platH + 0.15, 0);
-scene.add(new THREE.HemisphereLight(0xffffff, 0x404a66, 0.95));
-const sun = new THREE.DirectionalLight(0xffffff, 1.7); sun.position.set(0.8, 2.6, 1.2); sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048);
+scene.add(new THREE.HemisphereLight(0xffffff, 0x8899aa, 1.4)); // Dynamic-Makers view.js와 같은 조명
+const sun = new THREE.DirectionalLight(0xffffff, 1.6); sun.position.set(0.8, 2.6, 1.2); sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048);
 Object.assign(sun.shadow.camera, { left: -1, right: 1, top: 1, bottom: -1, near: 0.5, far: 6 }); scene.add(sun);
 function resize() { const w = view.clientWidth, h = view.clientHeight; renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix(); }
 new ResizeObserver(resize).observe(view);
@@ -149,65 +149,97 @@ new ResizeObserver(resize).observe(view);
   const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 8;
   const top = new THREE.Mesh(new THREE.BoxGeometry(A, RULE.platH, A), [0, 1, 2, 3, 4, 5].map(i => i === 2 ? new THREE.MeshStandardMaterial({ map: tex, roughness: 0.75 }) : new THREE.MeshStandardMaterial({ color: 0x8b6b45, roughness: 0.8 })));
   top.position.y = RULE.platH / 2; top.receiveShadow = true; top.castShadow = true; scene.add(top);
-  const fl = new THREE.Mesh(new THREE.PlaneGeometry(10, 10), new THREE.MeshStandardMaterial({ color: 0x3a3f5c, roughness: 1 })); fl.rotation.x = -Math.PI / 2; fl.receiveShadow = true; scene.add(fl);
+  const fl = new THREE.Mesh(new THREE.PlaneGeometry(10, 10), new THREE.MeshStandardMaterial({ color: 0xf4f6fa, roughness: 1 })); fl.rotation.x = -Math.PI / 2; fl.receiveShadow = true; scene.add(fl);
 }
 
-/* ---------------- MAX-E1 3D 모델 ---------------- */
-// MuJoCo 좌표(x 앞, y 왼쪽, z 위) → three(x 앞, y 위, z 오른쪽): (x, z, −y)
+/* ---------------- MAX-E1 3D 모델 (Dynamic-Makers와 같은 렌더링) ---------------- */
+// 부품: ROBOTIS STEP 도면에서 만든 저폴리 메시(parts-data.js) · 배치: 부품 조립(maxe1-cad.json) — Dynamic-Makers view.js와 같은 방식
+// 몸체 계층은 MuJoCo 좌표(x 앞, y 왼쪽, z 위)로 만들고, 바깥 그룹을 −90° 돌려 three(y 위)에 놓습니다.
+import { PARTS_META, PARTS_GZ } from './parts-data.js';
+const CAD = await fetch('maxe1-cad.json').then(r => r.json());
+const PARTS = await (async () => {
+  const bin = Uint8Array.from(atob(PARTS_GZ), c => c.charCodeAt(0));
+  const buf = await new Response(new Blob([bin]).stream().pipeThrough(new DecompressionStream('gzip'))).arrayBuffer();
+  const out = {};
+  for (const [name, info] of Object.entries(PARTS_META)) {
+    const q = new Int16Array(buf, info.off, info.nv * 3), idx = new Uint16Array(buf, info.off + info.nv * 6, info.nt * 3);
+    const pos = new Float32Array(q.length); for (let i = 0; i < q.length; i++) pos[i] = q[i] / 100000;
+    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(pos, 3)); g.setIndex(new THREE.BufferAttribute(idx, 1)); g.computeVertexNormals();
+    out[name] = g;
+  }
+  return out;
+})();
+const PART_COLORS = { frame: '#646b78', servo: '#2d3036', cover: '#8a92a0', sole: '#525a68' }; // Dynamic-Makers view.js
+const PART_MATS = Object.fromEntries(Object.entries(PART_COLORS).map(([k, c]) => [k, new THREE.MeshStandardMaterial({ color: new THREE.Color(c), roughness: 0.6, metalness: 0.15, side: THREE.DoubleSide, flatShading: true })]));
 const JOINTS = [ // ID 1~12 (Dynamic-Makers MAXE1_JOINT_MAP과 같은 방향)
   ['R_shoulder_pitch', -1], ['R_shoulder_roll', -1], ['L_shoulder_pitch', 1], ['L_shoulder_roll', 1],
   ['R_hip_roll', -1], ['R_hip_pitch', 1], ['L_hip_roll', -1], ['L_hip_pitch', 1],
   ['R_knee', -1], ['R_ankle_roll', 1], ['L_knee', -1], ['L_ankle_roll', 1]];
-const TILT = 15 * D2R, ARM_L = 0.1415, ZC = 0.3072;
-function buildRobot(teamColor, frameColor) {
-  const mk = (geo, color, rough = 0.55) => { const m = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ color, roughness: rough })); m.castShadow = true; m.receiveShadow = true; return m; };
-  const box = (x, y, z, color, px = 0, py = 0, pz = 0, parent) => { const m = mk(new THREE.BoxGeometry(x, y, z), color); m.position.set(px, py, pz); parent.add(m); return m; };
-  const link = (len, r, color, parent) => { const m = mk(new THREE.CylinderGeometry(r, r, len, 12), color); m.position.y = -len / 2; parent.add(m); return m; };
-  const DARK = 0x26272b, FRAME = frameColor;
-  const root = new THREE.Group();     // 경기장 위치 · 방향
-  const tilt = new THREE.Group(); root.add(tilt); // 넘어짐 (발 쪽을 축으로)
-  const body = new THREE.Group(); tilt.add(body);  // 바닥에서 몸통까지 높이 보정
-  const torso = new THREE.Group(); torso.position.y = ZC; body.add(torso);
-  box(0.0504, 0.0506, 0.1077, teamColor, 0, 0, 0, torso);
-  box(0.044, 0.044, 0.094, FRAME, 0, -0.0436, 0, torso);
-  box(0.0326, 0.048, 0.09, DARK, -0.0433, -0.082, 0, torso);
-  const head = box(0.042, 0.046, 0.034, 0xf1f2f6, 0, 0.0253 + 0.023, 0, torso);
-  box(0.006, 0.012, 0.024, 0x111111, 0.021, 0.006, 0, head);
-  const J = {}, M = {};
-  for (const [side, out] of [['R', 1], ['L', -1]]) {    // three z: 오른쪽 +
-    const sh = new THREE.Group(); sh.position.set(0, 0.32594 - ZC, out * 0.07058); torso.add(sh);
-    box(0.041, 0.047, 0.041, DARK, 0, 0, 0, sh);
-    const shP = new THREE.Group(); sh.add(shP); J[side + '_shoulder_pitch'] = { o: shP, axis: new THREE.Vector3(0, out * Math.sin(TILT), -Math.cos(TILT)).normalize() };
-    const arm = new THREE.Group(); arm.position.set(0, 0.30275 - 0.32594, out * (0.0768 - 0.07058)); shP.add(arm);
-    const armR = new THREE.Group(); arm.add(armR); J[side + '_shoulder_roll'] = { o: armR, axis: new THREE.Vector3(1, 0, 0) };
-    const dir = new THREE.Vector3(0, -Math.cos(TILT), out * Math.sin(TILT));
-    const lk = mk(new THREE.CylinderGeometry(0.013, 0.011, ARM_L, 12), FRAME); lk.position.copy(dir.clone().multiplyScalar(ARM_L / 2)); lk.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir); armR.add(lk);
-    const hand = mk(new THREE.SphereGeometry(0.016, 12, 10), teamColor); hand.position.copy(dir.clone().multiplyScalar(ARM_L)); armR.add(hand); M[side + 'h'] = hand;
-    // 다리 (이중 평행 링크)
-    const hip = new THREE.Group(); hip.position.set(0, 0.2172 - ZC, out * 0.0352); torso.add(hip);
-    const hipR = new THREE.Group(); hip.add(hipR); J[side + '_hip_roll'] = { o: hipR, axis: new THREE.Vector3(1, 0, 0) };
-    box(0.041, 0.047, 0.041, DARK, 0, -0.012, 0, hipR);
-    const thigh = new THREE.Group(); thigh.position.y = 0.1932 - 0.2172; hipR.add(thigh); J[side + '_hip_pitch'] = { o: thigh, axis: new THREE.Vector3(0, 0, -1) };
-    link(0.06, 0.011, FRAME, thigh);
-    const kf = new THREE.Group(); kf.position.y = -0.06; thigh.add(kf); J[side + '_knee_comp'] = { o: kf, axis: new THREE.Vector3(0, 0, -1) };
-    box(0.032, 0.032, 0.036, FRAME, 0.012, -0.008, 0, kf);
-    const shin = new THREE.Group(); shin.position.y = 0.1177 - 0.1332; kf.add(shin); J[side + '_knee'] = { o: shin, axis: new THREE.Vector3(0, 0, -1) };
-    link(0.06, 0.011, FRAME, shin);
-    const af = new THREE.Group(); af.position.y = -0.06; shin.add(af); J[side + '_ankle_comp'] = { o: af, axis: new THREE.Vector3(0, 0, -1) };
-    box(0.041, 0.047, 0.041, DARK, 0, -0.012, 0, af);
-    const foot = new THREE.Group(); foot.position.y = 0.0337 - 0.0577; af.add(foot); J[side + '_ankle_roll'] = { o: foot, axis: new THREE.Vector3(1, 0, 0) };
-    box(0.102, 0.0082, 0.064, teamColor, 0, -0.0337 + 0.0041, 0, foot);
-    const toe = new THREE.Object3D(); toe.position.set(0.05, -0.028, 0); foot.add(toe); M[side + 'f'] = toe;
-    const sole = new THREE.Object3D(); sole.position.set(0, -0.0337, 0); foot.add(sole); M[side + 's'] = sole;
+const TILT = CAD.dims.shoulderTilt * D2R, ARM_L = CAD.dims.armLength, ZC = CAD.bodies.torso.pos[2];
+// 몸체 → (부모, 관절, 관절 축) — maxe1-model.js의 MJCF와 같은 축 (팔 앞뒤 축은 F2 끝면 15° 기울기)
+const BODY_TREE = side => {
+  const out = side === 'R' ? -1 : 1;
+  return [
+    [side + '_shoulder', 'torso', side + '_shoulder_pitch', [0, Math.cos(TILT), out * Math.sin(TILT)]],
+    [side + '_arm', side + '_shoulder', side + '_shoulder_roll', [1, 0, 0]],
+    [side + '_hip', 'torso', side + '_hip_roll', [1, 0, 0]],
+    [side + '_thigh', side + '_hip', side + '_hip_pitch', [0, 1, 0]],
+    [side + '_knee_frame', side + '_thigh', side + '_knee_comp', [0, 1, 0]],
+    [side + '_shin', side + '_knee_frame', side + '_knee', [0, 1, 0]],
+    [side + '_ankle_frame', side + '_shin', side + '_ankle_comp', [0, 1, 0]],
+    [side + '_foot', side + '_ankle_frame', side + '_ankle_roll', [1, 0, 0]],
+  ];
+};
+function buildRobot(teamColor) {
+  const root = new THREE.Group();                 // 경기장 위치 · 방향 (three)
+  const tilt = new THREE.Group(); root.add(tilt);  // 넘어짐 (발 쪽을 축으로)
+  const body = new THREE.Group(); tilt.add(body);   // 바닥까지 높이 보정
+  const mj = new THREE.Group(); mj.rotation.x = -Math.PI / 2; body.add(mj); // MuJoCo → three
+  const BP = n => CAD.bodies[n].pos;
+  const B = { torso: new THREE.Group() }; B.torso.position.set(...BP('torso')); mj.add(B.torso);
+  const J = {};
+  for (const side of ['R', 'L']) for (const [name, parent, joint, axis] of BODY_TREE(side)) {
+    const g = new THREE.Group(); const p = BP(name), q = BP(parent); g.position.set(p[0] - q[0], p[1] - q[1], p[2] - q[2]);
+    B[parent].add(g); B[name] = g; J[joint] = { o: g, axis: new THREE.Vector3(...axis).normalize() };
   }
-  return { root, tilt, body, torso, head, J, M };
+  // 부품 메시
+  const pivots = [];
+  for (const e of CAD.visual) {
+    const geo = PARTS[e.part]; if (!geo || !B[e.body]) continue;
+    const mesh = new THREE.Mesh(geo, PART_MATS[e.color] || PART_MATS.frame); mesh.castShadow = true; mesh.receiveShadow = true; mesh.matrixAutoUpdate = false;
+    const local = new THREE.Matrix4().fromArray(e.m).transpose();
+    if (e.pivotBody) { mj.add(mesh); pivots.push({ mesh, local, body: B[e.body], pivotBody: B[e.pivotBody], pivot: new THREE.Vector3(...e.pivot) }); } // 평행 링크: 몸체와 같이 돌되 핀은 pivotBody에 고정
+    else { mesh.matrix.copy(local); B[e.body].add(mesh); }
+  }
+  // 타격 판정용 표식: 손끝 · 발끝 · 발바닥
+  const M = {};
+  for (const side of ['R', 'L']) {
+    const out = side === 'R' ? -1 : 1, dir = new THREE.Vector3(0, out * Math.sin(TILT), -Math.cos(TILT));
+    const h = new THREE.Object3D(); h.position.copy(dir.multiplyScalar(ARM_L)); B[side + '_arm'].add(h); M[side + 'h'] = h;
+    const toe = new THREE.Object3D(); toe.position.set(0.05, 0, -0.028); B[side + '_foot'].add(toe); M[side + 'f'] = toe;
+    const so = new THREE.Object3D(); so.position.set(0, 0, -CAD.dims.ankleRoll); B[side + '_foot'].add(so); M[side + 's'] = so;
+  }
+  // 팀 표시 (로봇 모습은 그대로 두고 발밑 고리 · 머리 위 표식만)
+  const ring = new THREE.Mesh(new THREE.RingGeometry(0.075, 0.09, 40), new THREE.MeshBasicMaterial({ color: teamColor, transparent: true, opacity: 0.85 }));
+  ring.rotation.x = -Math.PI / 2; ring.position.y = 0.002; root.add(ring);
+  const tag = (() => { const c = document.createElement('canvas'); c.width = 96; c.height = 48; const g = c.getContext('2d'); g.fillStyle = '#' + teamColor.toString(16).padStart(6, '0'); g.beginPath(); g.roundRect(2, 2, 92, 44, 10); g.fill(); g.fillStyle = '#fff'; g.font = 'bold 28px system-ui'; g.textAlign = 'center'; g.fillText(teamColor === 0x2f6bff ? '나' : '상대', 48, 34); const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(c), depthTest: false })); sp.scale.set(0.07, 0.035, 1); sp.position.y = 0.43; sp.renderOrder = 5; root.add(sp); return sp; })();
+  return { root, tilt, body, mj, B, J, M, pivots, ring, tag };
+}
+const _inv = new THREE.Matrix4(), _mb = new THREE.Matrix4(), _mp = new THREE.Matrix4(), _pin = new THREE.Vector3();
+function updatePivots(r) {
+  _inv.copy(r.mj.matrixWorld).invert();
+  for (const it of r.pivots) {
+    _mb.multiplyMatrices(_inv, it.body.matrixWorld); _mp.multiplyMatrices(_inv, it.pivotBody.matrixWorld);
+    _pin.copy(it.pivot).applyMatrix4(_mp); _mb.setPosition(_pin);
+    it.mesh.matrix.multiplyMatrices(_mb, it.local);
+  }
 }
 
 /* ---------------- 로봇 ---------------- */
 class Bot {
   constructor(team) {
     this.team = team; this.name = team ? '상대' : '나';
-    this.m = buildRobot(team ? 0xd23a2a : 0x2f6bff, 0x9aa3b0); scene.add(this.m.root);
+    this.m = buildRobot(team ? 0xd23a2a : 0x2f6bff); scene.add(this.m.root);
     this.reset(team ? RULE.startGap / 2 : -RULE.startGap / 2, 0, team ? Math.PI : 0);
   }
   reset(x, z, th) {
@@ -270,7 +302,10 @@ class Bot {
   sync() {
     const r = this.m; r.root.position.set(this.x, this.out ? -0.4 * Math.min(1, this.outT || 0) : RULE.platH, this.z); r.root.rotation.y = this.th;
     for (let i = 0; i < 12; i++) { const [name, sg] = JOINTS[i]; const j = r.J[name]; j.o.quaternion.setFromAxisAngle(j.axis, sg * this.pose[i] * D2R); }
-    for (const s of ['R', 'L']) { const hp = r.J[s + '_hip_pitch'].o.quaternion.clone(), kn = r.J[s + '_knee'].o.quaternion.clone(); r.J[s + '_knee_comp'].o.quaternion.copy(hp.invert()); r.J[s + '_ankle_comp'].o.quaternion.copy(kn.invert()); }
+    for (const s of ['R', 'L']) { // 이중 평행 링크: knee_comp = −hip_pitch, ankle_comp = −knee
+      r.J[s + '_knee_comp'].o.quaternion.copy(r.J[s + '_hip_pitch'].o.quaternion).invert();
+      r.J[s + '_ankle_comp'].o.quaternion.copy(r.J[s + '_knee'].o.quaternion).invert();
+    }
     // 바닥 높이: 두 발바닥 중 낮은 쪽이 바닥에 닿게
     r.body.position.y = 0; r.tilt.rotation.set(0, 0, 0); r.root.updateMatrixWorld(true);
     const v = new THREE.Vector3(); let minY = 1e9; for (const s of ['R', 'L']) { r.M[s + 's'].getWorldPosition(v); minY = Math.min(minY, v.y - r.root.position.y); }
@@ -279,6 +314,8 @@ class Bot {
     const dir = this.fallen ? this.fallen.dir : 0; const ease = t => t * t * (3 - 2 * t);
     r.tilt.rotation.z = -dir * ease(this.pitch) * (Math.PI / 2 - 0.12);
     r.root.updateMatrixWorld(true);
+    updatePivots(r);
+    r.tag.visible = !this.fallen && !this.out; r.ring.visible = !this.out;
   }
   limb(name) { const v = new THREE.Vector3(); this.m.M[name].getWorldPosition(v); return v; }
 }
@@ -542,7 +579,7 @@ $('#exit').addEventListener('click', () => post({ type: 'wrlsim:exit' })); if (!
 renderer.domElement.addEventListener('pointerdown', () => view.focus());
 cycleCam(); cycleCam(); cycleCam(); cycleCam(); // 'side'로
 resize(); requestAnimationFrame(frame);
-window.__hb = { me, op, G, AI, tick, startMatch, ATK, hitCheck, control, aiThink, Bot };
+window.__hb = { me, op, G, AI, tick, startMatch, ATK, hitCheck, control, aiThink, Bot, camera, controls, setCam: m => { camMode = m; controls.enabled = m === 'free'; } };
 post({ type: 'wrlsim:ready' });
 </script>
 </body>
