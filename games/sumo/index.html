@@ -1,0 +1,2647 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>로보레이브 스모 — SPIKE 워드블럭 대전 시뮬레이터</title>
+<meta name="description" content="로보레이브(RoboRAVE) 스모 종목 대전 시뮬레이터. SPIKE 워드블럭으로 스모 로봇을 조립하고, 상대 로봇을 불러와 원형 경기장에서 밀어내기 대결을 벌입니다.">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#EBEEF3" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0B0E13" media="(prefers-color-scheme: dark)">
+<meta property="og:title" content="로보레이브 스모 — SPIKE 워드블럭 대전 시뮬레이터">
+<meta property="og:description" content="로보레이브(RoboRAVE) 스모 종목 대전 시뮬레이터. SPIKE 워드블럭으로 스모 로봇을 조립하고, 상대 로봇을 불러와 원형 경기장에서 밀어내기 대결을 벌입니다.">
+<meta property="og:type" content="website">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 100 100%27%3E%3Ctext y=%27.9em%27 font-size=%2790%27%3E🤼%3C/text%3E%3C/svg%3E">
+</head>
+<body>
+<style>
+:root{
+  --bg:#EBEEF3; --app:#FFFFFF; --toolbar:#FFFFFF; --flyout:#F5F6F8;
+  --canvas:#FAFAFB; --dot:#DDE0E6;
+  --line:#E1E5EC; --line-2:#CBD2DC;
+  --ink:#1B1F28; --ink-2:#575E75; --ink-3:#8A93A6;
+  --accent:#1B4FD8; --accent-soft:#E6ECFD;
+  --mat:#191C23; --floor:#DDE2EA; --ring:#FBFCFD;
+  --cone:#DC3A2C; --hubY:#F2C21B;
+  --me:#2C7BF2; --op:#E8402E;
+  --ok:#0F9066; --warn:#D08A12; --danger:#DC3A2C;
+  --shadow:0 1px 2px rgba(20,24,33,.05), 0 10px 30px -14px rgba(20,24,33,.22);
+
+  /* SPIKE Prime 앱 3.6.1에서 추출 — c=블록 본체, t=드롭다운 필드 */
+  --c-motors:#0090F5;    --t-motors:#0078CC;
+  --c-move:#FF4CCD;      --t-move:#C80090;
+  --c-light:#9B6AF6;     --t-light:#691FF0;
+  --c-sound:#C061F1;     --t-sound:#8A40AF;
+  --c-events:#F5C402;    --t-events:#C8A300;
+  --c-control:#FFB515;   --t-control:#ECA100;
+  --c-sensors:#34CCF1;   --t-sensors:#00A8C9;
+  --c-operators:#00B94D; --t-operators:#00963E;
+  --c-variables:#FF8F24; --t-variables:#FF7D00;
+  --field-ink:#575E75;
+
+  --font-ui:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Segoe UI","Malgun Gothic",system-ui,sans-serif;
+  --font-mono:ui-monospace,"SF Mono",SFMono-Regular,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){
+  :root{
+    --bg:#0B0E13; --app:#141922; --toolbar:#171D27; --flyout:#11161E;
+    --canvas:#0E131A; --dot:#232B37;
+    --line:#252E3B; --line-2:#36414F;
+    --ink:#E8ECF3; --ink-2:#9BA6B8; --ink-3:#78839A;
+    --accent:#7099FF; --accent-soft:#1A2542;
+    --mat:#0A0C10; --floor:#171C25; --ring:#E9EDF4;
+    --ok:#31C08E; --warn:#E0A63C; --danger:#F0604F;
+    --shadow:0 1px 2px rgba(0,0,0,.5), 0 12px 30px -16px rgba(0,0,0,.8);
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0B0E13; --app:#141922; --toolbar:#171D27; --flyout:#11161E;
+  --canvas:#0E131A; --dot:#232B37;
+  --line:#252E3B; --line-2:#36414F;
+  --ink:#E8ECF3; --ink-2:#9BA6B8; --ink-3:#78839A;
+  --accent:#7099FF; --accent-soft:#1A2542;
+  --mat:#0A0C10; --floor:#171C25; --ring:#E9EDF4;
+  --ok:#31C08E; --warn:#E0A63C; --danger:#F0604F;
+  --shadow:0 1px 2px rgba(0,0,0,.5), 0 12px 30px -16px rgba(0,0,0,.8);
+}
+:root[data-theme="light"]{
+  --bg:#EBEEF3; --app:#FFFFFF; --toolbar:#FFFFFF; --flyout:#F5F6F8;
+  --canvas:#FAFAFB; --dot:#DDE0E6;
+  --line:#E1E5EC; --line-2:#CBD2DC;
+  --ink:#1B1F28; --ink-2:#575E75; --ink-3:#8A93A6;
+  --accent:#1B4FD8; --accent-soft:#E6ECFD;
+  --mat:#191C23; --floor:#DDE2EA; --ring:#FBFCFD;
+  --ok:#0F9066; --warn:#D08A12; --danger:#DC3A2C;
+  --shadow:0 1px 2px rgba(20,24,33,.05), 0 10px 30px -14px rgba(20,24,33,.22);
+}
+
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font-ui);
+  font-size:15px;line-height:1.55;-webkit-font-smoothing:antialiased}
+h1,h2,h3{margin:0;text-wrap:balance;letter-spacing:-.015em}
+p{margin:0}
+a{color:var(--accent);text-decoration:none;font-weight:650}
+a:hover{text-decoration:underline}
+button,input,select{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:5px}
+.wrap{max-width:1580px;margin:0 auto;padding:18px 16px 56px}
+
+.pagetop{display:flex;flex-wrap:wrap;align-items:flex-end;gap:12px 22px;margin-bottom:14px}
+.eyebrow{font-size:11px;font-weight:700;letter-spacing:.13em;text-transform:uppercase;
+  color:var(--accent);display:flex;align-items:center;gap:8px}
+.eyebrow::after{content:"";height:1px;width:32px;background:var(--line-2)}
+.pagetop h1{font-size:clamp(19px,2.2vw,26px);font-weight:750;margin-top:4px}
+.pagetop .sub{color:var(--ink-2);font-size:13px;margin-top:2px;max-width:72ch}
+
+/* ── 앱 창 ───────────────────────────────────── */
+.appwin{background:var(--app);border:1px solid var(--line);border-radius:14px;
+  box-shadow:var(--shadow);overflow:hidden}
+.tbar{display:flex;align-items:center;gap:10px;padding:8px 12px;background:var(--toolbar);
+  border-bottom:1px solid var(--line);flex-wrap:wrap}
+.brand{display:flex;align-items:center;gap:8px;font-weight:800;font-size:13px;letter-spacing:-.01em}
+.brand .sq{width:20px;height:20px;border-radius:5px;background:var(--hubY);
+  display:grid;place-items:center;font-size:11px;color:#1B1F28}
+.projname{border:1px solid var(--line);background:var(--app);border-radius:7px;
+  padding:4px 9px;font-size:12.5px;font-weight:600;width:180px}
+.tbar .sp{margin-left:auto}
+.tbtn{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line-2);
+  background:var(--app);border-radius:8px;padding:5px 11px;font-size:12.5px;
+  font-weight:650;cursor:pointer;white-space:nowrap}
+.tbtn:hover{background:var(--flyout)}
+.tbtn[disabled]{opacity:.45;cursor:not-allowed}
+.tbtn.go{background:var(--ok);border-color:var(--ok);color:#fff}
+.tbtn.stop{background:var(--danger);border-color:var(--danger);color:#fff}
+.tbtn.link{background:var(--accent);border-color:var(--accent);color:#fff}
+.conn{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:650;
+  padding:4px 10px;border-radius:20px;background:var(--flyout);border:1px solid var(--line)}
+.conn i{width:8px;height:8px;border-radius:50%;background:var(--ink-3)}
+.conn.on i{background:var(--ok)}
+
+.body{display:grid;grid-template-columns:66px 216px minmax(280px,1fr) 452px;
+  height:min(80vh,780px);min-height:560px}
+@media (max-width:1340px){
+  .body{grid-template-columns:66px 216px minmax(0,1fr);height:auto;min-height:0}
+  .sim{grid-column:1/-1;border-left:0;border-top:1px solid var(--line)}
+  .cats,.flyout,.canvas{height:min(62vh,600px)}
+}
+@media (max-width:760px){
+  .body{grid-template-columns:66px minmax(0,1fr)}
+  .flyout{grid-column:1/-1;height:240px;order:3;border-top:1px solid var(--line)}
+}
+
+/* 카테고리 세로 스트립 — 앱과 같은 원형 아이콘 + 라벨 */
+.cats{background:var(--app);border-right:1px solid var(--line);overflow:auto;
+  padding:8px 0;display:flex;flex-direction:column;gap:2px}
+.cats button{background:none;border:0;padding:6px 2px 5px;cursor:pointer;
+  display:flex;flex-direction:column;align-items:center;gap:3px;
+  font-size:10px;font-weight:650;color:var(--ink-2);line-height:1.2}
+.cats button i{width:20px;height:20px;border-radius:50%;display:block}
+.cats button[aria-pressed="true"]{color:var(--ink)}
+.cats button[aria-pressed="true"] i{box-shadow:0 0 0 3px var(--accent-soft)}
+
+/* 플라이아웃 — 앱처럼 카테고리 제목이 들어간 하나의 연속 스크롤 */
+.flyout{background:var(--flyout);border-right:1px solid var(--line);
+  overflow:auto;padding:10px 9px 40px;display:flex;flex-direction:column;
+  align-items:flex-start;gap:6px}
+.flyhead{font-size:15px;font-weight:800;color:var(--ink-3);padding:12px 2px 3px;letter-spacing:-.02em}
+.flyhead:first-child{padding-top:0}
+.flyout .blk,.flyout .rep{cursor:grab}
+.flyout .blk:active,.flyout .rep:active{cursor:grabbing}
+/* 팔레트의 드롭다운·숫자칸은 disabled 폼 요소라 그 위를 누르면 드래그가 시작되지 않는다.
+   앱처럼 블록 전체를 잡을 수 있도록 마우스 이벤트를 블록으로 넘긴다. */
+.flyout select.fld,.flyout input.num,.flyout .vslot,.flyout .bslot{pointer-events:none}
+.flyout .off{opacity:.42;cursor:not-allowed!important}
+.flynote{font-size:10.5px;color:var(--ink-3);line-height:1.4;padding:2px 2px 0;max-width:196px}
+.mkvar{border:1px solid var(--line-2);background:var(--app);border-radius:16px;
+  padding:5px 14px;font-size:12px;font-weight:650;cursor:pointer;margin:2px 0 4px}
+.mkvar:hover{background:var(--accent-soft);border-color:var(--accent)}
+
+.canvas{overflow:auto;background:var(--canvas);
+  background-image:radial-gradient(var(--dot) 1px,transparent 1px);
+  background-size:22px 22px;padding:14px 14px 90px;position:relative}
+.canvas .hint{position:absolute;right:14px;top:12px;font-size:11px;color:var(--ink-3);
+  max-width:min(58ch,70%);text-align:right;line-height:1.45}
+.canvas .hint.warn{color:var(--danger);font-weight:650}
+/* 맞지 않는 슬롯 위에서는 빨간 테두리로 거절을 보여준다 */
+.bslot.bad,.vslot.bad{box-shadow:0 0 0 2px var(--danger)}
+
+/* ── 블록 ───────────────────────────────────── */
+.blk{position:relative;display:flex;flex-wrap:wrap;align-items:center;gap:4px;
+  padding:5px 10px 5px 6px;border-radius:6px;color:#fff;font-size:12px;font-weight:600;
+  line-height:1.5;user-select:none;width:fit-content;max-width:100%}
+.blk.hat{border-radius:13px 13px 6px 6px;padding-top:9px}
+.blk[data-active="1"]{box-shadow:0 0 0 2px var(--canvas),0 0 0 4.5px var(--ink)}
+.ico{width:19px;height:19px;border-radius:50%;background:rgba(255,255,255,.92);
+  display:grid;place-items:center;font-size:10px;flex:none;color:#20242C}
+.c-motors{background:var(--c-motors);--field:var(--t-motors)}
+.c-move{background:var(--c-move);--field:var(--t-move)}
+.c-light{background:var(--c-light);--field:var(--t-light)}
+.c-sound{background:var(--c-sound);--field:var(--t-sound)}
+.c-events{background:var(--c-events);--field:var(--t-events)}
+.c-control{background:var(--c-control);--field:var(--t-control)}
+.c-sensors{background:var(--c-sensors);--field:var(--t-sensors)}
+.c-operators{background:var(--c-operators);--field:var(--t-operators)}
+.c-variables{background:var(--c-variables);--field:var(--t-variables)}
+
+/* 드롭다운 = 같은 계열 진한색 + 흰 글씨 (앱과 동일) */
+select.fld{background-color:var(--field);color:#fff;border:0;border-radius:4px;
+  padding:0 14px 0 4px;font-size:11px;font-weight:700;font-family:var(--font-ui);
+  cursor:pointer;-webkit-appearance:none;appearance:none;
+  background-image:linear-gradient(45deg,transparent 50%,#fff 50%),
+                   linear-gradient(135deg,#fff 50%,transparent 50%);
+  background-position:calc(100% - 8px) 7px,calc(100% - 4px) 7px;
+  background-size:4px 4px,4px 4px;background-repeat:no-repeat}
+select.fld option{color:#12161f;background:#fff}
+
+/* 값 슬롯 = 흰 알약 (숫자) 또는 끼워진 리포터 */
+.vslot{display:inline-flex;align-items:center;border-radius:12px;min-height:19px}
+.vslot.lit{background:#fff;padding:0 3px}
+.vslot.steer{background:#fff;padding:0 6px 0 7px;gap:1px;color:var(--field-ink);
+  font-size:11px;font-weight:700}
+input.num{background:transparent;color:var(--field-ink);border:0;border-radius:11px;
+  padding:0 3px;width:38px;text-align:center;font-size:11px;font-weight:700;
+  font-family:var(--font-mono);font-variant-numeric:tabular-nums;-moz-appearance:textfield}
+input.num.wide{width:56px}
+input.num::-webkit-outer-spin-button,input.num::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+.vslot.over,.bslot.over{box-shadow:0 0 0 2px var(--hubY)}
+
+/* 리포터(둥근)·불리언(각진) 블록 */
+.rep{display:inline-flex;flex-wrap:wrap;align-items:center;gap:4px;padding:1px 8px 1px 4px;
+  border-radius:12px;color:#fff;font-size:11px;font-weight:600;width:fit-content}
+.rep.bool{border-radius:4px;transform:skewX(-12deg);padding:1px 7px}
+.rep.bool>*{transform:skewX(12deg)}
+.bslot{display:inline-flex;align-items:center;justify-content:center;min-width:44px;min-height:19px;
+  border-radius:3px;background:rgba(0,0,0,.26);box-shadow:inset 0 0 0 1.5px rgba(255,255,255,.3);
+  transform:skewX(-12deg)}
+
+.droplist{display:flex;flex-direction:column;align-items:flex-start;gap:3px;min-height:12px}
+.canvas>.stackroot>.droplist{min-height:230px}
+.node{position:relative;width:fit-content;max-width:100%}
+.cwrap{width:fit-content;max-width:100%}
+.cbody{margin-left:12px;padding-left:10px;border-left:5px solid;
+  display:flex;flex-direction:column;align-items:flex-start;gap:3px;min-height:26px;
+  padding-block:4px;min-width:64px}
+.cmid{padding:4px 10px;border-radius:0;color:#fff;font-size:12px;font-weight:600;width:fit-content}
+.cfoot{height:8px;margin-left:12px;border-radius:0 0 6px 6px;width:70px}
+.caret{height:4px;border-radius:2px;background:var(--ink);margin:1px 0}
+/* 선택 표시 — 누르면 여기에 블록이 들어간다 */
+.blk.sel{box-shadow:0 0 0 2px var(--canvas),0 0 0 4px var(--accent)}
+.bslot.sel,.vslot.sel{outline:2px solid var(--accent);outline-offset:2px}
+.cbody.sel{background:var(--accent-soft)}
+.tools{position:absolute;top:1px;right:1px;display:none;gap:2px;padding:0}
+.node:hover>.blk>.tools,.node:hover>.cwrap>.blk>.tools,.blk.sel>.tools{display:flex}
+.tools button{width:18px;height:18px;border-radius:5px;border:0;background:rgba(0,0,0,.34);
+  color:#fff;font-size:10px;line-height:1;cursor:pointer;padding:0;display:grid;place-items:center}
+.tools button:hover{background:rgba(0,0,0,.62)}
+/* 터치 기기 — 탭 지연과 더블탭 확대를 없앤다 */
+.blk,.rep,.vslot,.bslot,.cbody,button,select,input{touch-action:manipulation}
+.emptyhint{color:var(--ink-3);font-size:12px;text-align:center;padding:30px 10px;
+  border:1.5px dashed var(--line-2);border-radius:10px;background:var(--app)}
+
+/* ── 시뮬레이터 ─────────────────────────────── */
+.sim{border-left:1px solid var(--line);background:var(--flyout);overflow:auto;display:flex;flex-direction:column}
+.simhead{display:flex;align-items:center;gap:8px;padding:9px 13px;
+  border-bottom:1px solid var(--line);background:var(--app);position:sticky;top:0;z-index:3}
+.simhead h2{font-size:11.5px;font-weight:750;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-2)}
+.simhead .note{margin-left:auto;font-size:11px;color:var(--ink-3);font-family:var(--font-mono)}
+.hubwrap{display:grid;grid-template-columns:auto 1fr;gap:13px;padding:13px;
+  background:var(--app);border-bottom:1px solid var(--line)}
+.hub{width:126px;background:var(--hubY);border-radius:13px;padding:9px 8px 10px;
+  box-shadow:inset 0 -3px 0 rgba(0,0,0,.12)}
+.hubbar{display:flex;align-items:center;justify-content:flex-end;height:12px;margin-bottom:5px}
+.btled{width:9px;height:9px;border-radius:50%;background:#8E939C;box-shadow:0 0 0 2px rgba(255,255,255,.5)}
+.btled.on{background:#2C7BF2}
+@keyframes blink{50%{opacity:.15}}
+.matrix{background:#20242C;border-radius:7px;padding:7px;display:grid;grid-template-columns:repeat(5,1fr);gap:3px}
+.matrix span{aspect-ratio:1;border-radius:2px;background:#333944}
+.matrix span.on{background:#FFFFFF;box-shadow:0 0 5px rgba(255,255,255,.85)}
+.hubbtns{display:flex;align-items:center;justify-content:center;gap:7px;margin-top:9px}
+.hb{border:0;border-radius:50%;background:#F7F8FA;width:22px;height:22px;cursor:pointer;
+  font-size:10px;color:#4A5262;display:grid;place-items:center;padding:0;box-shadow:0 1px 0 rgba(0,0,0,.18)}
+.hb:hover{background:#fff}
+.hb.ctr{width:32px;height:32px;position:relative;background:#EDEFF3}
+.hb.ctr .ring{position:absolute;inset:3px;border-radius:50%;background:#B9BEC8;box-shadow:inset 0 0 0 1px rgba(0,0,0,.12)}
+.hb.ctr .ring.green{background:#37C46B;box-shadow:0 0 8px rgba(55,196,107,.75)}
+.hb.ctr .ring.orange{background:#F2A31B;animation:blink 1s steps(2,end) infinite}
+.hb.ctr .ring.red{background:#E8402E;animation:blink .55s steps(2,end) infinite}
+.hubports{display:flex;justify-content:space-between;margin-top:8px;
+  font-family:var(--font-mono);font-size:8.5px;color:#7A6210;font-weight:700}
+.hubctl{display:flex;flex-direction:column;gap:9px;min-width:0}
+.fieldrow{display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+.fieldrow>.lab{font-size:10.5px;font-weight:750;letter-spacing:.06em;
+  text-transform:uppercase;color:var(--ink-3);width:52px;flex:none}
+.segm{display:flex;border:1px solid var(--line-2);border-radius:7px;overflow:hidden}
+.segm button{background:var(--app);border:0;padding:4px 10px;font-size:11.5px;font-weight:650;cursor:pointer}
+.segm button+button{border-left:1px solid var(--line)}
+.segm button[aria-pressed="true"]{background:var(--accent);color:#fff}
+.slots{display:flex;gap:4px}
+.slots button{width:25px;height:25px;border-radius:7px;border:1px solid var(--line-2);
+  background:var(--app);font-family:var(--font-mono);font-size:11.5px;font-weight:700;
+  cursor:pointer;position:relative;padding:0}
+.slots button[aria-pressed="true"]{background:var(--ink);color:var(--app);border-color:var(--ink)}
+.slots button.has::after{content:"";position:absolute;right:2px;top:2px;width:5px;height:5px;border-radius:50%;background:var(--ok)}
+.batt{flex:1;min-width:80px;accent-color:var(--accent)}
+.battval{font-family:var(--font-mono);font-size:11.5px;font-weight:700;font-variant-numeric:tabular-nums;width:34px;text-align:right}
+.dlbar{display:flex;gap:7px;align-items:center;flex-wrap:wrap}
+.msg{font-size:11.5px;line-height:1.45;padding:6px 9px;border-radius:7px;
+  background:var(--flyout);border:1px solid var(--line);color:var(--ink-2)}
+.msg.warn{border-color:var(--warn);color:var(--ink);background:color-mix(in srgb,var(--warn) 10%,transparent)}
+.msg.ok{border-color:var(--ok);color:var(--ink);background:color-mix(in srgb,var(--ok) 10%,transparent)}
+.msg b{color:var(--ink)}
+.fieldbox{position:relative;background:var(--app)}
+canvas{display:block;width:100%;height:auto}
+.verdict{position:absolute;inset:auto 0 0 0;display:flex;justify-content:center;padding:11px;pointer-events:none}
+.verdict[hidden]{display:none}
+.verdict div{background:var(--app);border:1px solid var(--line);border-radius:10px;
+  padding:7px 15px;font-weight:700;font-size:13px;box-shadow:var(--shadow);display:flex;align-items:center;gap:8px}
+.verdict .dot{width:9px;height:9px;border-radius:50%}
+/* 카운트다운 — 등 맞대고 3초 대기 */
+.count{position:absolute;inset:0;display:grid;place-items:center;pointer-events:none}
+.count[hidden]{display:none}
+.count span{font-family:var(--font-mono);font-size:64px;font-weight:800;color:#fff;
+  text-shadow:0 2px 18px rgba(0,0,0,.55);font-variant-numeric:tabular-nums}
+/* 대전 상대·모드 줄 */
+.oppbar{display:flex;flex-wrap:wrap;gap:6px 8px;align-items:center;padding:8px 12px;
+  background:var(--app);border-bottom:1px solid var(--line)}
+.oppbar .lab{font-size:10.5px;font-weight:750;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3)}
+.oppbar select{border:1px solid var(--line-2);background:var(--app);border-radius:7px;
+  padding:4px 8px;font-size:12.5px;font-weight:600;max-width:230px}
+.chip-me{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;font-weight:700}
+.chip-me i,.chip-op i{width:9px;height:9px;border-radius:50%;display:inline-block}
+.chip-me i{background:var(--me)} .chip-op i{background:var(--op)}
+.chip-op{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;font-weight:700}
+/* 리더보드 */
+.lb tr.me td{background:color-mix(in srgb,var(--me) 9%,transparent)}
+.lb td.rank{font-family:var(--font-mono);font-weight:800;width:44px}
+.lb .flag{margin-right:6px}
+.lb .bar{height:5px;border-radius:3px;background:var(--line);position:relative;min-width:70px}
+.lb .bar i{position:absolute;inset:0 auto 0 0;border-radius:3px;background:var(--ok)}
+.namebox{border:1px solid var(--line-2);background:var(--app);border-radius:7px;
+  padding:4px 8px;font-size:12.5px;font-weight:600;width:110px}
+.fbar{display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:8px 12px;
+  background:var(--app);border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+.fbar .hint{margin-left:auto;font-size:11px;color:var(--ink-3)}
+.tele{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1px;background:var(--line)}
+.cell{background:var(--app);padding:8px 11px 9px}
+.cell.off{background:var(--flyout)}
+.cell .lab{font-size:9.5px;font-weight:750;letter-spacing:.07em;text-transform:uppercase;color:var(--ink-3)}
+.cell .val{font-family:var(--font-mono);font-size:17px;font-weight:600;line-height:1.25;
+  font-variant-numeric:tabular-nums;margin-top:1px;white-space:nowrap}
+.cell.off .val{color:var(--ink-3)}
+.cell .val small{font-size:10.5px;color:var(--ink-3);font-weight:500;margin-left:2px}
+.meter{height:4px;border-radius:3px;background:var(--line);margin-top:6px;position:relative;overflow:hidden}
+.meter i{position:absolute;inset:0 auto 0 0;border-radius:3px}
+.meter u{position:absolute;top:-2px;bottom:-2px;width:2px;background:var(--ink-2);opacity:.75}
+.dots{display:flex;gap:4px;margin-top:6px}
+.dots span{width:14px;height:14px;border-radius:50%;border:1.5px solid var(--line-2);
+  display:grid;place-items:center;font-size:8.5px;font-weight:800;color:var(--ink-3);font-family:var(--font-mono)}
+.dots span.out{background:var(--cone);border-color:var(--cone);color:#fff}
+.state{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:700;
+  padding:1px 9px;border-radius:20px;background:var(--flyout);margin-top:3px}
+.state .dot{width:7px;height:7px;border-radius:50%;background:var(--ink-3)}
+.log{font-family:var(--font-mono);font-size:11px;line-height:1.7;padding:8px 12px 12px;
+  flex:1;min-height:76px;overflow:auto;color:var(--ink-2);background:var(--app);border-top:1px solid var(--line)}
+.log b{color:var(--ink);font-weight:600}
+.log .t{color:var(--accent);font-variant-numeric:tabular-nums}
+.log .empty{color:var(--ink-3)}
+.log .warnrow{color:var(--warn)}
+
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(228px,1fr));gap:13px;margin-top:15px}
+.card{background:var(--app);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);overflow:hidden}
+.cardhead{padding:9px 13px;border-bottom:1px solid var(--line);background:var(--flyout);
+  font-size:11.5px;font-weight:750;letter-spacing:.05em;text-transform:uppercase;color:var(--ink-2);
+  display:flex;align-items:center;gap:8px}
+.cardhead .note{margin-left:auto;font-size:10.5px;color:var(--ink-3);text-transform:none;letter-spacing:0;font-weight:600}
+.tune{padding:11px 13px 14px;display:grid;gap:9px}
+.row{display:grid;grid-template-columns:1fr 70px;gap:9px;align-items:center}
+.row label{font-size:12.5px;color:var(--ink-2)}
+.row label em{font-style:normal;color:var(--ink-3);font-size:11px;display:block}
+.row input{width:100%;background:var(--flyout);border:1px solid var(--line);border-radius:6px;
+  padding:4px 7px;text-align:right;font-family:var(--font-mono);font-size:12.5px;font-variant-numeric:tabular-nums}
+.docs{margin-top:22px}
+.docs h2{font-size:16px;font-weight:700;margin-bottom:3px}
+.docs .lede{color:var(--ink-2);font-size:13.5px;max-width:70ch;margin-bottom:12px}
+.tablewrap{overflow-x:auto;border:1px solid var(--line);border-radius:11px;background:var(--app)}
+table{border-collapse:collapse;width:100%;min-width:560px;font-size:13px}
+th,td{text-align:left;padding:8px 13px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-size:10.5px;letter-spacing:.07em;text-transform:uppercase;color:var(--ink-3);background:var(--flyout);font-weight:750}
+tr:last-child td{border-bottom:0}
+td.n{font-family:var(--font-mono);font-variant-numeric:tabular-nums;white-space:nowrap}
+code{font-family:var(--font-mono);font-size:.92em;background:var(--flyout);
+  border:1px solid var(--line);border-radius:4px;padding:0 4px}
+.steps{counter-reset:s;display:grid;gap:9px;margin-top:12px;padding:0;
+  grid-template-columns:repeat(auto-fit,minmax(232px,1fr))}
+.steps li{counter-increment:s;list-style:none;background:var(--app);border:1px solid var(--line);
+  border-radius:11px;padding:11px 13px 12px;font-size:12.5px;color:var(--ink-2)}
+.steps li::before{content:counter(s);display:grid;place-items:center;width:20px;height:20px;
+  border-radius:6px;background:var(--ink);color:var(--app);font-size:11px;font-weight:800;
+  font-family:var(--font-mono);margin-bottom:6px}
+.steps li b{color:var(--ink);display:block;font-size:13px;margin-bottom:2px}
+.callout{border:1px solid var(--line);border-left:3px solid var(--warn);background:var(--app);
+  border-radius:0 11px 11px 0;padding:11px 15px;font-size:13px;color:var(--ink-2);margin-top:13px}
+.callout b{color:var(--ink)}
+footer{margin-top:24px;padding-top:12px;border-top:1px solid var(--line);font-size:12px;color:var(--ink-3)}
+@media (prefers-reduced-motion:reduce){*{animation:none!important}}
+</style>
+
+<div class="wrap">
+  <div class="pagetop">
+    <div>
+      <div class="eyebrow" data-i18n="ttEyebrow">RoboRAVE · 스모 종목</div>
+      <h1 data-i18n="ttH1">로보레이브 스모 — SPIKE 워드블럭 대전 시뮬레이터</h1>
+      <p class="sub" data-i18n="ttSub"></p>
+      <p class="sub" style="margin-top:4px">🔧 <a href="https://drive.google.com/file/d/1hNueBQCRkNeAL3DK85-qIdXuH-d0Ql3q/view?usp=drive_link" target="_blank" rel="noopener"><span data-i18n="asmCard">조립 카드 (Google Drive)</span></a></p>
+    </div>
+    <div style="margin-left:auto">
+      <select id="langSel" class="namebox" style="width:120px" aria-label="Language / 언어">
+        <option value="ko">한국어</option><option value="en">English</option>
+        <option value="ja">日本語</option><option value="es">Español</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="appwin">
+    <div class="tbar">
+      <div class="brand"><span class="sq">▦</span>SPIKE™ 프라임</div>
+      <input class="projname" id="projname" value="나의 스모 로봇" aria-label="프로젝트 이름">
+      <span class="sp"></span>
+      <span class="conn" id="connChip"><i></i><span id="connTxt">연결 안 됨</span></span>
+      <button class="tbtn link" id="btnConn">연결</button>
+      <button class="tbtn go" id="btnPlay" disabled>▶ 실행</button>
+      <button class="tbtn stop" id="btnStop" disabled>■ 정지</button>
+    </div>
+
+    <div class="body">
+      <nav class="cats" id="cats" aria-label="블록 카테고리"></nav>
+      <aside class="flyout" id="palette" aria-label="블록 팔레트"></aside>
+      <main class="canvas">
+        <span class="hint" id="canvasHint">블록을 끌어 놓고 숫자를 고치세요</span>
+        <div class="stackroot" id="script"></div>
+      </main>
+
+      <section class="sim">
+        <div class="simhead"><h2 data-i18n="simTitle">스모 경기장</h2><span class="note" id="simNote">대기</span></div>
+        <div class="oppbar">
+          <span class="lab" data-i18n="modeLab">모드</span>
+          <div class="segm" id="fightSeg" role="group" aria-label="경기 모드">
+            <button data-fm="solo" aria-pressed="false" data-i18n="mSolo">혼자 연습</button>
+            <button data-fm="vs" aria-pressed="true" data-i18n="mVs">상대 불러오기</button>
+          </div>
+          <span class="chip-me"><i></i><input class="namebox" id="myName" value="" aria-label="내 로봇 이름"><select id="myFlag" class="namebox" style="width:130px" aria-label="내 국적"></select></span>
+          <span class="chip-op" id="oppWrap"><i></i>
+            <select id="lvlSel" class="namebox" style="width:150px" aria-label="상대 수준"></select>
+            <select id="oppSel" aria-label="상대 로봇 선택"></select>
+            <button class="tbtn" id="btnBattle10">⚡ <span data-i18n="b10">10회 자동 대전</span></button>
+          </span>
+        </div>
+        <div class="hubwrap">
+          <div class="hub">
+            <div class="hubbar"><span class="btled" id="btled"></span></div>
+            <div class="matrix" id="matrix" aria-label="5x5 라이트 매트릭스"></div>
+            <div class="hubbtns">
+              <button class="hb" id="hbLeft" title="이전 슬롯">◀</button>
+              <button class="hb ctr" id="hbCtr" title="가운데 버튼 — 선택한 슬롯 실행"><span class="ring" id="hbRing"></span></button>
+              <button class="hb" id="hbRight" title="다음 슬롯">▶</button>
+            </div>
+            <div class="hubports"><span>A C E</span><span>B D F</span></div>
+          </div>
+          <div class="hubctl">
+            <div class="fieldrow"><span class="lab" data-i18n="hubMode">모드</span>
+              <div class="segm" id="modeSeg" role="group" aria-label="실행 모드">
+                <button data-mode="stream" aria-pressed="false" data-i18n="segStream">스트리밍</button>
+                <button data-mode="download" aria-pressed="true" data-i18n="segDl">다운로드</button>
+              </div>
+            </div>
+            <div class="fieldrow"><span class="lab" data-i18n="hubSlot">슬롯</span><div class="slots" id="slots"></div></div>
+            <div class="fieldrow"><span class="lab" data-i18n="hubBatt">배터리</span>
+              <input type="range" class="batt" id="batt" min="0" max="100" step="5" value="100">
+              <span class="battval" id="battVal">100%</span>
+            </div>
+            <div class="dlbar">
+              <button class="tbtn link" id="btnDl" disabled>↓ <span data-i18n="btnDl">허브에 다운로드</span></button>
+              <button class="tbtn" id="btnErase" disabled><span data-i18n="btnErase">슬롯 비우기</span></button>
+            </div>
+            <div class="msg" id="hubMsg">허브가 연결되어 있지 않습니다. <b>연결</b>을 누르세요.</div>
+          </div>
+        </div>
+
+        <div class="fieldbox">
+          <canvas id="cv"></canvas>
+          <div class="count" id="count" hidden><span>3</span></div>
+          <div class="verdict" id="verdict" hidden><div><span class="dot"></span><span class="txt"></span></div></div>
+        </div>
+        <div class="fbar">
+          <button class="tbtn" id="reset" data-i18n="fReset">경기장 초기화</button>
+          <div class="segm" role="group" aria-label="배속">
+            <button data-sp="1" aria-pressed="true">1×</button>
+            <button data-sp="2" aria-pressed="false">2×</button>
+            <button data-sp="4" aria-pressed="false">4×</button>
+          </div>
+          <button class="tbtn" id="btnExport">↧ <span data-i18n="fExp">내 코드 내보내기</span></button>
+          <button class="tbtn" id="btnImport">↥ <span data-i18n="fImp">코드 가져오기</span></button>
+          <input type="file" id="fileImport" accept=".json,application/json" hidden>
+          <span class="hint" data-i18n="fHint">시작 = 중앙 · 등 맞대고 3초</span>
+        </div>
+        <div class="tele">
+          <div class="cell"><div class="lab" data-i18n="hTime">경기 시간</div>
+            <div class="val"><span id="tTime">0.00</span><small>/60s</small></div>
+            <div class="meter"><i id="mTime" style="background:var(--accent);width:0%"></i></div></div>
+          <div class="cell"><div class="lab" data-i18n="hScore">오늘 전적</div>
+            <div class="val" style="font-size:15px"><span id="tScore">0승 0패</span></div>
+            <div class="state"><span class="dot" id="oDot"></span><span id="tOpp">—</span></div></div>
+          <div class="cell"><div class="lab" data-i18n="hState">현재 동작</div>
+            <div class="state"><span class="dot" id="sDot"></span><span id="tState">대기</span></div></div>
+          <div class="cell" id="cellRefl"><div class="lab" data-i18n="hRefl">D · 반사광</div>
+            <div class="val"><span id="tRefl">10</span><small>%</small></div>
+            <div class="meter"><i id="mRefl" style="background:var(--hubY);width:10%"></i><u id="uThr" style="left:45%"></u></div></div>
+          <div class="cell" id="cellDist"><div class="lab" data-i18n="hDist">A · 거리</div>
+            <div class="val"><span id="tDist">—</span><small>cm</small></div>
+            <div class="meter"><i id="mDist" style="background:var(--c-sensors);width:0%"></i></div></div>
+          <div class="cell" id="cellMot"><div class="lab" data-i18n="hMot">모터 B / F</div>
+            <div class="val" style="font-size:15px"><span id="tMot">0 / 0</span><small>cm/s</small></div>
+            <div class="meter"><i id="mMot" style="background:var(--c-move);width:0%"></i></div></div>
+        </div>
+        <div class="log" id="log"><div class="empty">허브를 연결하고 프로그램을 다운로드한 뒤, 허브 가운데 버튼을 누르세요.</div></div>
+      </section>
+    </div>
+  </div>
+
+  <section class="docs">
+    <h2 data-i18n="lbTitle">랭킹 — 1위부터 10위까지</h2>
+    <p class="lede" data-i18n="lbLede"></p>
+    <div class="tablewrap lb" style="margin-bottom:8px">
+      <table>
+        <thead><tr><th data-i18n="thRank">순위</th><th data-i18n="thBot">로봇 · 국적</th><th data-i18n="thRec">전적 (승-패-무)</th><th data-i18n="thRate">승률</th><th></th></tr></thead>
+        <tbody id="lbBody"></tbody>
+      </table>
+    </div>
+    <div class="fieldrow" style="margin-bottom:18px">
+      <button class="tbtn" id="btnLeague" data-i18n="btnLeagueTxt">🏆 상대 10명 리그전 돌리기</button>
+      <button class="tbtn" id="btnLbReset" data-i18n="btnLbResetTxt">전적 초기화</button>
+      <span class="hint" style="font-size:11px;color:var(--ink-3)" data-i18n="leagueHint"></span>
+    </div>
+
+    <div id="docsBody"></div>
+
+    <div class="grid2">
+      <div class="card"><div class="cardhead"><span data-i18n="cArena">경기장 실측값</span><span class="note" data-i18n="cArenaNote">대회 당일 재측정</span></div>
+        <div class="tune">
+          <div class="row"><label data-i18n="pDia">경기장 지름 <em>흰 테두리 바깥 지름</em></label><input type="number" id="p_dia" value="120" step="1" min="60" max="200"></div>
+          <div class="row"><label data-i18n="pBorder">흰 테두리 폭 <em>경계선 두께</em></label><input type="number" id="p_border" value="5" step="0.5" min="1" max="15"></div>
+          <div class="row"><label data-i18n="pMatch">제한 시간 <em>초 — 넘기면 무승부</em></label><input type="number" id="p_match" value="60" step="5" min="10" max="180"></div>
+        </div></div>
+      <div class="card"><div class="cardhead"><span data-i18n="cRobot">로봇 실측값</span><span class="note" data-i18n="cRobotNote">두 로봇 공통</span></div>
+        <div class="tune">
+          <div class="row"><label data-i18n="pWheel">바퀴 지름 <em>레고 실리콘 56 mm</em></label><input type="number" id="p_wheel" value="5.6" step="0.1" min="3" max="10"></div>
+          <div class="row"><label data-i18n="pTrack">좌우 바퀴 간격 <em>제자리 회전 각도 계산</em></label><input type="number" id="p_track" value="11.2" step="0.1" min="6" max="20"></div>
+          <div class="row"><label data-i18n="pVmax">100% 주행 속도 <em>배터리 100% 기준</em></label><input type="number" id="p_vmax" value="45" step="1" min="10" max="80"></div>
+        </div></div>
+      <div class="card"><div class="cardhead"><span data-i18n="cErr">현실 오차</span><span class="note" data-i18n="cErrNote">감이 아니라 값으로</span></div>
+        <div class="tune">
+          <div class="row"><label data-i18n="pSlip">바퀴 미끄러짐 <em>좌우 바퀴 속도 차 ±%</em></label><input type="number" id="p_slip" value="2" step="0.5" min="0" max="15"></div>
+          <div class="row"><label data-i18n="pBeam">초음파 유효 감지각 <em>상대 로봇 ±°</em></label><input type="number" id="p_beam" value="12" step="1" min="4" max="35"></div>
+          <div class="row"><label data-i18n="pNoise">반사광 노이즈 <em>조명 흔들림 ±%</em></label><input type="number" id="p_noise" value="2" step="0.5" min="0" max="15"></div>
+        </div></div>
+    </div>
+    <footer><span data-i18n="footNote"></span>
+      <br><span id="buildStamp" style="font-family:var(--font-mono)"></span> — <span data-i18n="footCache">화면이 옛날 것 같으면 강력 새로고침 하세요 (Windows <b>Ctrl+F5</b> · Mac <b>⌘⇧R</b>)</span>.</footer>
+  </section>
+</div>
+
+<script>
+"use strict";
+const $=(id)=>document.getElementById(id);
+/* 브라우저가 옛 파일을 캐시해도 어느 판인지 바로 알 수 있게 한다 (GitHub Pages는 10분 캐시) */
+const BUILD='빌드 v8 · 2026-08-06 · 조립 카드 링크 추가';
+
+/* ══════════ 물리 상수 ══════════ */
+const W={dia:120,border:5,wheel:5.6,track:11.2,vmax:45,slip:2,beam:12,noise:2};
+const G={bumper:10.5,bumperHalf:6.5,senA:8.5,senB:9.0,caster:7.5,rear:-7.0,bodyHalf:5.5,wheelHalf:5.6};
+const ACCEL=220;
+let MATCH=60;                 // 제한 시간 — 넘기면 무승부 (하단 입력칸으로 조정)
+const RBOT=9;                 // 로봇끼리 미는 접촉 반경 (cm)
+const COUNTDOWN=3;            // 등 맞대고 대기하는 시간 (s)
+const R_OUT=()=>W.dia/2, R_MAT=()=>W.dia/2-W.border;
+
+/* 실제 로봇의 배선 — 여기 한 곳만 고치면 전체에 반영된다 */
+const PORT={left:'B', right:'F', color:'D', ultra:'A'};
+const HUB={connected:false,mode:'download',slot:0,battery:100,
+           slots:[null,null,null,null,null],stamp:[null,null,null,null,null],display:null};
+const battK=()=>HUB.battery>=20?0.92+0.08*(HUB.battery-20)/80:0.55+0.37*HUB.battery/20;
+const vmaxNow=()=>W.vmax*battK();
+const slipNow=()=>W.slip*(HUB.battery<20?1.8:1);
+
+/* ══════════ 블록 정의 — SPIKE 앱 3.6.1 한국어 툴박스에서 추출 ══════════
+   T=라벨  FD=드롭다운 필드  IN=값 슬롯(숫자 또는 리포터)  ST=조향 슬롯  BL=조건 슬롯 */
+const T=s=>({k:'t',s}), FD=(n,o)=>({k:'fd',n,o}), IN=n=>({k:'in',n}),
+      ST=n=>({k:'st',n}), BL=n=>({k:'bl',n});
+const PORTS=['A','B','C','D','E','F'];
+const UNITS=['회전','도','초','cm','인치'];
+const DIRS=['↑','↓'];
+const CMP=['<','=','>'];
+const DUNIT=['cm','인치','%'];
+
+const DEFS={
+/* ── 모터 ── */
+ motorTurnForDirection:{cat:'motors',ico:'⚙',f:{PORT:'A',DIR:'↻',UNIT:'회전'},in:{VALUE:1},
+   parts:[FD('PORT',PORTS),T('모터'),FD('DIR',['↻','↺']),T('방향으로'),IN('VALUE'),FD('UNIT',UNITS),T('만큼 작동하기')]},
+ motorStartDirection:{cat:'motors',ico:'⚙',f:{PORT:'A',DIR:'↻'},
+   parts:[FD('PORT',PORTS),T('모터'),FD('DIR',['↻','↺']),T('방향으로 켜기')]},
+ motorStop:{cat:'motors',ico:'⚙',f:{PORT:'A'},parts:[FD('PORT',PORTS),T('멈추기')]},
+ motorSetSpeed:{cat:'motors',ico:'⚙',f:{PORT:'A'},in:{SPEED:75},
+   parts:[FD('PORT',PORTS),T('모터'),IN('SPEED'),T('%로 속도 정하기')]},
+ absolutePosition:{cat:'motors',ico:'⚙',rep:'round',f:{PORT:'A'},parts:[FD('PORT',PORTS),T('위치')]},
+ motorSpeed:{cat:'motors',ico:'⚙',rep:'round',f:{PORT:'A'},parts:[FD('PORT',PORTS),T('속도')]},
+
+/* ── 동작 ── */
+ move:{cat:'move',ico:'◉',f:{DIR:'↑',UNIT:'회전'},in:{VALUE:10},
+   parts:[FD('DIR',DIRS),T('방향으로'),IN('VALUE'),FD('UNIT',UNITS),T('만큼 움직이기')]},
+ startMove:{cat:'move',ico:'◉',f:{DIR:'↑'},parts:[FD('DIR',DIRS),T('방향으로 동작 시작하기')]},
+ steer:{cat:'move',ico:'◉',f:{UNIT:'회전'},in:{STEER:30,VALUE:10},
+   parts:[ST('STEER'),T('방향으로'),IN('VALUE'),FD('UNIT',UNITS),T('만큼 움직이기')]},
+ startSteer:{cat:'move',ico:'◉',in:{STEER:30},parts:[ST('STEER'),T('방향으로 동작 시작하기')]},
+ stopMove:{cat:'move',ico:'◉',parts:[T('이동 멈추기')]},
+ movementSpeed:{cat:'move',ico:'◉',in:{SPEED:50},parts:[T('동작 속도를'),IN('SPEED'),T('%로 정하기')]},
+ setMovementPair:{cat:'move',ico:'◉',f:{PAIR:'A+B'},
+   parts:[T('동작 모터를'),FD('PAIR',['A+B', 'A+C', 'A+D', 'A+E', 'A+F', 'B+C', 'B+D', 'B+E', 'B+F', 'C+D', 'C+E', 'C+F', 'D+E', 'D+F', 'E+F']),T('(으)로 정하기')]},
+ setDistance:{cat:'move',ico:'◉',f:{UNIT:'cm'},in:{VALUE:17.5},
+   parts:[T('모터 1회전을'),IN('VALUE'),FD('UNIT',['cm','인치']),T('이동 거리로 정하기')]},
+
+/* ── 라이트 ── */
+ lightDisplayText:{cat:'light',ico:'▦',in:{TEXT:0},parts:[IN('TEXT'),T('쓰기')]},
+ lightDisplayOff:{cat:'light',ico:'▦',parts:[T('픽셀 끄기')]},
+ lightDisplaySetBrightness:{cat:'light',ico:'▦',in:{VALUE:75},
+   parts:[T('픽셀 밝기를'),IN('VALUE'),T('%로 정하기')]},
+
+/* ── 사운드 ── */
+ beepForTime:{cat:'sound',ico:'♪',in:{NOTE:60,DURATION:0.2},
+   parts:[T('비프음'),IN('NOTE'),T('을(를)'),IN('DURATION'),T('초간 재생하기')]},
+ beep:{cat:'sound',ico:'♪',in:{NOTE:60},parts:[T('비프음'),IN('NOTE'),T('재생 시작하기')]},
+ stopSound:{cat:'sound',ico:'♪',parts:[T('모든 사운드 끄기')]},
+
+/* ── 이벤트 ── */
+ whenProgramStarts:{cat:'events',ico:'▶',hat:1,parts:[T('프로그램이 시작될 때')]},
+
+/* ── 제어 ── */
+ control_wait:{cat:'control',ico:'✓',in:{DURATION:1},parts:[IN('DURATION'),T('초 기다리기')]},
+ control_repeat:{cat:'control',ico:'✓',body:1,in:{TIMES:10},parts:[IN('TIMES'),T('번 반복하기')]},
+ control_forever:{cat:'control',ico:'✓',body:1,parts:[T('무한 반복하기')]},
+ control_if:{cat:'control',ico:'✓',body:1,b:{COND:null},parts:[T('만약'),BL('COND'),T('(이)라면')]},
+ control_if_else:{cat:'control',ico:'✓',body:1,body2:1,b:{COND:null},
+   parts:[T('만약'),BL('COND'),T('(이)라면')],mid:'아니면'},
+ control_wait_until:{cat:'control',ico:'✓',b:{COND:null},parts:[BL('COND'),T('까지 기다리기')]},
+ control_repeat_until:{cat:'control',ico:'✓',body:1,b:{COND:null},parts:[BL('COND'),T('까지 반복하기')]},
+
+/* ── 센서 ── */
+ isReflectivity:{cat:'sensors',ico:'◎',rep:'bool',f:{PORT:'A',OP:'<'},in:{VALUE:50},
+   parts:[FD('PORT',PORTS),T('반사'),FD('OP',CMP),IN('VALUE'),T('% ?')]},
+ reflectivity:{cat:'sensors',ico:'◎',rep:'round',f:{PORT:'A'},parts:[FD('PORT',PORTS),T('반사광')]},
+ isDistance:{cat:'sensors',ico:'◎',rep:'bool',f:{PORT:'A',OP:'<',UNIT:'%'},in:{VALUE:15},
+   parts:[FD('PORT',PORTS),T('이'),FD('OP',CMP),IN('VALUE'),FD('UNIT',DUNIT),T('인가?')]},
+ distance:{cat:'sensors',ico:'◎',rep:'round',f:{PORT:'A',UNIT:'%'},
+   parts:[FD('PORT',PORTS),T('이(가)'),FD('UNIT',DUNIT),T('단위로 탐지한 거리')]},
+ orientationAxis:{cat:'sensors',ico:'◎',rep:'round',f:{AXIS:'요'},
+   parts:[FD('AXIS',['피치','롤','요']),T('도')]},
+ resetYaw:{cat:'sensors',ico:'◎',parts:[T('요 각도를 0으로 정하기')]},
+ timer:{cat:'sensors',ico:'◎',rep:'round',parts:[T('타이머')]},
+ resetTimer:{cat:'sensors',ico:'◎',parts:[T('타이머 초기화')]},
+
+/* ── 연산 ── */
+ operator_random:{cat:'operators',ico:'＝',rep:'round',in:{FROM:1,TO:10},
+   parts:[IN('FROM'),T('부터'),IN('TO'),T('사이의 난수')]},
+ operator_add:{cat:'operators',ico:'＝',rep:'round',in:{A:'',B:''},parts:[IN('A'),T('+'),IN('B')]},
+ operator_subtract:{cat:'operators',ico:'＝',rep:'round',in:{A:'',B:''},parts:[IN('A'),T('-'),IN('B')]},
+ operator_multiply:{cat:'operators',ico:'＝',rep:'round',in:{A:'',B:''},parts:[IN('A'),T('×'),IN('B')]},
+ operator_divide:{cat:'operators',ico:'＝',rep:'round',in:{A:'',B:''},parts:[IN('A'),T('÷'),IN('B')]},
+ operator_lt:{cat:'operators',ico:'＝',rep:'bool',in:{A:'',B:100},parts:[IN('A'),T('<'),IN('B')]},
+ operator_equals:{cat:'operators',ico:'＝',rep:'bool',in:{A:'',B:100},parts:[IN('A'),T('='),IN('B')]},
+ operator_gt:{cat:'operators',ico:'＝',rep:'bool',in:{A:'',B:100},parts:[IN('A'),T('>'),IN('B')]},
+ operator_and:{cat:'operators',ico:'＝',rep:'bool',b:{A:null,B:null},parts:[BL('A'),T('그리고'),BL('B')]},
+ operator_or:{cat:'operators',ico:'＝',rep:'bool',b:{A:null,B:null},parts:[BL('A'),T('또는'),BL('B')]},
+ operator_not:{cat:'operators',ico:'＝',rep:'bool',b:{A:null},parts:[BL('A'),T('이(가) 아니다')]},
+ operator_round:{cat:'operators',ico:'＝',rep:'round',in:{A:''},parts:[IN('A'),T('의 반올림')]},
+ operator_mathop:{cat:'operators',ico:'＝',rep:'round',f:{OP:'절댓값'},in:{A:''},
+   parts:[FD('OP',['절댓값','바닥','천장','제곱근']),T('('),IN('A'),T(')')]},
+
+/* ── 변수 ── */
+ data_setvariableto:{cat:'variables',ico:'×',f:{VAR:'나의 변수'},in:{VALUE:0},
+   parts:[FD('VAR',['나의 변수']),T('를'),IN('VALUE'),T('로 정하기')]},
+ data_changevariableby:{cat:'variables',ico:'×',f:{VAR:'나의 변수'},in:{VALUE:1},
+   parts:[FD('VAR',['나의 변수']),T('를'),IN('VALUE'),T('만큼 바꾸기')]},
+ data_variable:{cat:'variables',ico:'×',rep:'round',f:{VAR:'나의 변수'},parts:[FD('VAR',['나의 변수'])]}
+};
+
+const CATS=[
+ {id:'motors',name:'모터',items:['motorTurnForDirection','motorStartDirection','motorStop','motorSetSpeed','absolutePosition','motorSpeed']},
+ {id:'move',name:'동작',items:['move','startMove','steer','startSteer','stopMove','movementSpeed','setMovementPair','setDistance']},
+ {id:'light',name:'라이트',items:['lightDisplayText','lightDisplayOff','lightDisplaySetBrightness']},
+ {id:'sound',name:'사운드',items:['beepForTime','beep','stopSound']},
+ {id:'events',name:'이벤트',items:['whenProgramStarts']},
+ {id:'control',name:'제어',items:['control_wait','control_repeat','control_forever','control_if','control_if_else','control_wait_until','control_repeat_until']},
+ {id:'sensors',name:'센서',items:['isReflectivity','reflectivity','isDistance','distance','orientationAxis','resetYaw','timer','resetTimer']},
+ {id:'operators',name:'연산',items:['operator_random','operator_add','operator_subtract','operator_multiply','operator_divide','operator_lt','operator_equals','operator_gt','operator_and','operator_or','operator_not','operator_round','operator_mathop']},
+ {id:'variables',name:'변수',items:['data_setvariableto','data_changevariableby','data_variable']}
+];
+
+/* 사용자 변수 목록 — SPIKE의 '변수 만들기'로 늘어난다. 블록 드롭다운·VM 초기화가 여기를 본다 */
+let VARS=['나의 변수'];
+
+/* ══════════ 블록 다국어 ══════════
+   저장 값(f)은 항상 한국어 원본(canonical)을 유지한다 — VM 판정·저장 파일·언어 간 공유가 전부
+   값 기준이므로, 언어를 바꿔도 프로그램은 그대로 호환된다. 여기서는 '표시'만 바꾼다.
+   문구는 SPIKE 앱의 해당 언어 표현을 따른 근사치다 (한국어만 툴박스 추출 원본). */
+const OPT_L10N={
+ '회전':{en:'rotations',ja:'回転',es:'rotaciones'},
+ '도':{en:'degrees',ja:'度',es:'grados'},
+ '초':{en:'seconds',ja:'秒',es:'segundos'},
+ '인치':{en:'inches',ja:'インチ',es:'pulgadas'},
+ '피치':{en:'pitch',ja:'ピッチ',es:'inclinación'},
+ '롤':{en:'roll',ja:'ロール',es:'balanceo'},
+ '요':{en:'yaw',ja:'ヨー',es:'guiñada'},
+ '절댓값':{en:'abs',ja:'絶対値',es:'abs'},
+ '바닥':{en:'floor',ja:'切り下げ',es:'suelo'},
+ '천장':{en:'ceiling',ja:'切り上げ',es:'techo'},
+ '제곱근':{en:'square root',ja:'平方根',es:'raíz cuadrada'},
+ '나의 변수':{en:'my variable',ja:'私の変数',es:'mi variable'}};
+const optLabel=v=>LANG==='ko'?v:((OPT_L10N[v]||{})[LANG]||v);
+const STEER_W={ko:['오른쪽:','왼쪽:','직진'],en:['right:','left:','straight'],
+               ja:['右:','左:','直進'],es:['derecha:','izquierda:','recto']};
+const L10N_MID={en:'else',ja:'でなければ',es:'si no'};
+const midLabel=d=>LANG==='ko'?(d.mid||'아니면'):(L10N_MID[LANG]||'else');
+const CAT_L10N={motors:{en:'Motors',ja:'モーター',es:'Motores'},move:{en:'Movement',ja:'ムーブメント',es:'Movimiento'},
+ light:{en:'Light',ja:'ライト',es:'Luz'},sound:{en:'Sound',ja:'サウンド',es:'Sonido'},
+ events:{en:'Events',ja:'イベント',es:'Eventos'},control:{en:'Control',ja:'制御',es:'Control'},
+ sensors:{en:'Sensors',ja:'センサー',es:'Sensores'},operators:{en:'Operators',ja:'演算',es:'Operadores'},
+ variables:{en:'Variables',ja:'変数',es:'Variables'}};
+const catName=c=>LANG==='ko'?c.name:((CAT_L10N[c.id]||{})[LANG]||c.name);
+/* 언어별 parts 배열 — 슬롯(FD/IN/ST/BL)은 동일, 어순과 라벨만 다르다. 없는 블록은 한국어로 폴백. */
+const L10N_PARTS={
+en:{
+ motorTurnForDirection:[FD('PORT',PORTS),T('run'),FD('DIR',['↻','↺']),T('for'),IN('VALUE'),FD('UNIT',UNITS)],
+ motorStartDirection:[FD('PORT',PORTS),T('start motor'),FD('DIR',['↻','↺'])],
+ motorStop:[FD('PORT',PORTS),T('stop motor')],
+ motorSetSpeed:[FD('PORT',PORTS),T('set speed to'),IN('SPEED'),T('%')],
+ absolutePosition:[FD('PORT',PORTS),T('position')],
+ motorSpeed:[FD('PORT',PORTS),T('speed')],
+ move:[T('move'),FD('DIR',DIRS),T('for'),IN('VALUE'),FD('UNIT',UNITS)],
+ startMove:[T('start moving'),FD('DIR',DIRS)],
+ steer:[T('move'),ST('STEER'),T('for'),IN('VALUE'),FD('UNIT',UNITS)],
+ startSteer:[T('start moving'),ST('STEER')],
+ stopMove:[T('stop moving')],
+ movementSpeed:[T('set movement speed to'),IN('SPEED'),T('%')],
+ setMovementPair:[T('set movement motors to'),FD('PAIR',['A+B','A+C','A+D','A+E','A+F','B+C','B+D','B+E','B+F','C+D','C+E','C+F','D+E','D+F','E+F'])],
+ setDistance:[T('set 1 motor rotation to'),IN('VALUE'),FD('UNIT',['cm','인치']),T('moved')],
+ lightDisplayText:[T('write'),IN('TEXT')],
+ lightDisplayOff:[T('turn off pixels')],
+ lightDisplaySetBrightness:[T('set pixel brightness to'),IN('VALUE'),T('%')],
+ beepForTime:[T('beep'),IN('NOTE'),T('for'),IN('DURATION'),T('seconds')],
+ beep:[T('start beep'),IN('NOTE')],
+ stopSound:[T('stop all sounds')],
+ whenProgramStarts:[T('when program starts')],
+ control_wait:[T('wait'),IN('DURATION'),T('seconds')],
+ control_repeat:[T('repeat'),IN('TIMES')],
+ control_forever:[T('forever')],
+ control_if:[T('if'),BL('COND'),T('then')],
+ control_if_else:[T('if'),BL('COND'),T('then')],
+ control_wait_until:[T('wait until'),BL('COND')],
+ control_repeat_until:[T('repeat until'),BL('COND')],
+ isReflectivity:[T('is'),FD('PORT',PORTS),T('reflection'),FD('OP',CMP),IN('VALUE'),T('% ?')],
+ reflectivity:[FD('PORT',PORTS),T('reflected light')],
+ isDistance:[T('is'),FD('PORT',PORTS),FD('OP',CMP),IN('VALUE'),FD('UNIT',DUNIT),T('?')],
+ distance:[FD('PORT',PORTS),T('distance in'),FD('UNIT',DUNIT)],
+ orientationAxis:[FD('AXIS',['피치','롤','요']),T('angle')],
+ resetYaw:[T('set yaw angle to 0')],
+ timer:[T('timer')],
+ resetTimer:[T('reset timer')],
+ operator_random:[T('pick random'),IN('FROM'),T('to'),IN('TO')],
+ operator_and:[BL('A'),T('and'),BL('B')],
+ operator_or:[BL('A'),T('or'),BL('B')],
+ operator_not:[T('not'),BL('A')],
+ operator_round:[T('round'),IN('A')],
+ data_setvariableto:[T('set'),FD('VAR',['나의 변수']),T('to'),IN('VALUE')],
+ data_changevariableby:[T('change'),FD('VAR',['나의 변수']),T('by'),IN('VALUE')]
+},
+ja:{
+ motorTurnForDirection:[FD('PORT',PORTS),T('モーターを'),FD('DIR',['↻','↺']),T('方向に'),IN('VALUE'),FD('UNIT',UNITS),T('回す')],
+ motorStartDirection:[FD('PORT',PORTS),T('モーターを'),FD('DIR',['↻','↺']),T('方向にオンにする')],
+ motorStop:[FD('PORT',PORTS),T('モーターを停止')],
+ motorSetSpeed:[FD('PORT',PORTS),T('モーターの速度を'),IN('SPEED'),T('%にする')],
+ absolutePosition:[FD('PORT',PORTS),T('の位置')],
+ motorSpeed:[FD('PORT',PORTS),T('の速度')],
+ move:[FD('DIR',DIRS),T('方向に'),IN('VALUE'),FD('UNIT',UNITS),T('動かす')],
+ startMove:[FD('DIR',DIRS),T('方向に動き出す')],
+ steer:[ST('STEER'),T('方向に'),IN('VALUE'),FD('UNIT',UNITS),T('動かす')],
+ startSteer:[ST('STEER'),T('方向に動き出す')],
+ stopMove:[T('動きを止める')],
+ movementSpeed:[T('動きの速度を'),IN('SPEED'),T('%にする')],
+ setMovementPair:[T('ムーブメントモーターを'),FD('PAIR',['A+B','A+C','A+D','A+E','A+F','B+C','B+D','B+E','B+F','C+D','C+E','C+F','D+E','D+F','E+F']),T('にする')],
+ setDistance:[T('モーター1回転を'),IN('VALUE'),FD('UNIT',['cm','인치']),T('の移動距離にする')],
+ lightDisplayText:[IN('TEXT'),T('を書く')],
+ lightDisplayOff:[T('ピクセルを消す')],
+ lightDisplaySetBrightness:[T('ピクセルの明るさを'),IN('VALUE'),T('%にする')],
+ beepForTime:[T('ビープ音'),IN('NOTE'),T('を'),IN('DURATION'),T('秒鳴らす')],
+ beep:[T('ビープ音'),IN('NOTE'),T('を鳴らし始める')],
+ stopSound:[T('すべての音を止める')],
+ whenProgramStarts:[T('プログラムがスタートしたとき')],
+ control_wait:[IN('DURATION'),T('秒待つ')],
+ control_repeat:[IN('TIMES'),T('回繰り返す')],
+ control_forever:[T('ずっと')],
+ control_if:[T('もし'),BL('COND'),T('なら')],
+ control_if_else:[T('もし'),BL('COND'),T('なら')],
+ control_wait_until:[BL('COND'),T('まで待つ')],
+ control_repeat_until:[BL('COND'),T('まで繰り返す')],
+ isReflectivity:[FD('PORT',PORTS),T('の反射光が'),FD('OP',CMP),IN('VALUE'),T('% ?')],
+ reflectivity:[FD('PORT',PORTS),T('の反射光')],
+ isDistance:[FD('PORT',PORTS),T('が'),FD('OP',CMP),IN('VALUE'),FD('UNIT',DUNIT),T('?')],
+ distance:[FD('PORT',PORTS),T('が'),FD('UNIT',DUNIT),T('で測った距離')],
+ orientationAxis:[FD('AXIS',['피치','롤','요']),T('角度')],
+ resetYaw:[T('ヨー角を0にする')],
+ timer:[T('タイマー')],
+ resetTimer:[T('タイマーをリセット')],
+ operator_random:[IN('FROM'),T('から'),IN('TO'),T('までの乱数')],
+ operator_and:[BL('A'),T('かつ'),BL('B')],
+ operator_or:[BL('A'),T('または'),BL('B')],
+ operator_not:[BL('A'),T('ではない')],
+ operator_round:[IN('A'),T('を四捨五入')],
+ data_setvariableto:[FD('VAR',['나의 변수']),T('を'),IN('VALUE'),T('にする')],
+ data_changevariableby:[FD('VAR',['나의 변수']),T('を'),IN('VALUE'),T('ずつ変える')]
+},
+es:{
+ motorTurnForDirection:[FD('PORT',PORTS),T('girar'),FD('DIR',['↻','↺']),T('durante'),IN('VALUE'),FD('UNIT',UNITS)],
+ motorStartDirection:[FD('PORT',PORTS),T('encender motor'),FD('DIR',['↻','↺'])],
+ motorStop:[FD('PORT',PORTS),T('detener motor')],
+ motorSetSpeed:[FD('PORT',PORTS),T('fijar velocidad a'),IN('SPEED'),T('%')],
+ absolutePosition:[FD('PORT',PORTS),T('posición')],
+ motorSpeed:[FD('PORT',PORTS),T('velocidad')],
+ move:[T('mover'),FD('DIR',DIRS),T('durante'),IN('VALUE'),FD('UNIT',UNITS)],
+ startMove:[T('empezar a mover'),FD('DIR',DIRS)],
+ steer:[T('mover'),ST('STEER'),T('durante'),IN('VALUE'),FD('UNIT',UNITS)],
+ startSteer:[T('empezar a mover'),ST('STEER')],
+ stopMove:[T('dejar de mover')],
+ movementSpeed:[T('fijar velocidad de movimiento a'),IN('SPEED'),T('%')],
+ setMovementPair:[T('fijar motores de movimiento a'),FD('PAIR',['A+B','A+C','A+D','A+E','A+F','B+C','B+D','B+E','B+F','C+D','C+E','C+F','D+E','D+F','E+F'])],
+ setDistance:[T('fijar 1 rotación del motor a'),IN('VALUE'),FD('UNIT',['cm','인치']),T('recorridos')],
+ lightDisplayText:[T('escribir'),IN('TEXT')],
+ lightDisplayOff:[T('apagar píxeles')],
+ lightDisplaySetBrightness:[T('fijar brillo de píxeles a'),IN('VALUE'),T('%')],
+ beepForTime:[T('pitido'),IN('NOTE'),T('durante'),IN('DURATION'),T('segundos')],
+ beep:[T('iniciar pitido'),IN('NOTE')],
+ stopSound:[T('detener todos los sonidos')],
+ whenProgramStarts:[T('al empezar el programa')],
+ control_wait:[T('esperar'),IN('DURATION'),T('segundos')],
+ control_repeat:[T('repetir'),IN('TIMES')],
+ control_forever:[T('por siempre')],
+ control_if:[T('si'),BL('COND'),T('entonces')],
+ control_if_else:[T('si'),BL('COND'),T('entonces')],
+ control_wait_until:[T('esperar hasta que'),BL('COND')],
+ control_repeat_until:[T('repetir hasta que'),BL('COND')],
+ isReflectivity:[FD('PORT',PORTS),T('reflejo'),FD('OP',CMP),IN('VALUE'),T('% ?')],
+ reflectivity:[FD('PORT',PORTS),T('luz reflejada')],
+ isDistance:[T('¿'),FD('PORT',PORTS),FD('OP',CMP),IN('VALUE'),FD('UNIT',DUNIT),T('?')],
+ distance:[FD('PORT',PORTS),T('distancia en'),FD('UNIT',DUNIT)],
+ orientationAxis:[T('ángulo de'),FD('AXIS',['피치','롤','요'])],
+ resetYaw:[T('poner guiñada a 0')],
+ timer:[T('temporizador')],
+ resetTimer:[T('reiniciar temporizador')],
+ operator_random:[T('número aleatorio entre'),IN('FROM'),T('y'),IN('TO')],
+ operator_and:[BL('A'),T('y'),BL('B')],
+ operator_or:[BL('A'),T('o'),BL('B')],
+ operator_not:[T('no'),BL('A')],
+ operator_round:[T('redondear'),IN('A')],
+ data_setvariableto:[T('dar a'),FD('VAR',['나의 변수']),T('el valor'),IN('VALUE')],
+ data_changevariableby:[T('sumar a'),FD('VAR',['나의 변수']),IN('VALUE')]
+}};
+const partsOf=(d,type)=>LANG==='ko'?d.parts:(((L10N_PARTS[LANG]||{})[type])||d.parts);
+
+/* ══════════ 프로그램 모델 ══════════ */
+let nid=0;
+function mk(type){
+  const d=DEFS[type], n={id:'n'+(++nid),type,f:Object.assign({},d.f||{}),in:{},b:{}};
+  for(const k in (d.in||{})) n.in[k]={lit:d.in[k]};
+  for(const k in (d.b||{})) n.b[k]=null;
+  if(d.body) n.body=[];
+  if(d.body2) n.body2=[];
+  return n;
+}
+let SCRIPT=[];
+/* ── 블록 프로그램을 코드로 조립하는 도우미 — 기본 예제와 상대 로봇 10명이 함께 쓴다 ── */
+function nb(t,f,i){const n=mk(t); Object.assign(n.f,f||{});
+  for(const k in (i||{})) n.in[k]={lit:i[k]}; return n;}
+const waitU=c=>{const w=nb('control_wait_until'); w.b.COND=c; return w;};
+const seeEdge=(v=50)=>nb('isReflectivity',{PORT:PORT.color,OP:'>'},{VALUE:v});
+const seeFoe=(v=120)=>nb('isDistance',{PORT:PORT.ultra,OP:'<',UNIT:'cm'},{VALUE:v});
+const lostFoe=(v=170)=>nb('isDistance',{PORT:PORT.ultra,OP:'>',UNIT:'cm'},{VALUE:v});
+/* 검증된 돌진 규칙: 테두리를 봤으면 살아남기(후퇴+회전), 상대를 놓친 것뿐이면 그냥 재탐색 */
+const edgeOrRetry=(bk=15)=>{const ie=mk('control_if_else'); ie.b.COND=seeEdge();
+  ie.body=[spd(60),back(bk),turn(9)]; ie.body2=[]; return ie;};
+const bOr=(a,b)=>{const o=nb('operator_or'); o.b.A=a; o.b.B=b; return o;};
+const spd=v=>nb('movementSpeed',null,{SPEED:v});
+const fwdGo=()=>nb('startMove',{DIR:'\u2191'});
+const back=cm=>nb('move',{DIR:'\u2193',UNIT:'cm'},{VALUE:cm});
+const turn=cm=>nb('steer',{UNIT:'cm'},{STEER:100,VALUE:cm});   // 조향 100 = 제자리 회전 · 17.6cm = 180도
+const spin=(st=100)=>nb('startSteer',null,{STEER:st});
+const halt=()=>nb('stopMove');
+const pairB=()=>nb('setMovementPair',{PAIR:PORT.left+'+'+PORT.right});
+const loopF=body=>{const l=mk('control_forever'); l.body=body; return l;};
+/* 규칙의 시작 순서 그대로: 끝까지 전진 → 살짝 물러나 → 180도 돌기 */
+const toEdgeTurn=(sp=60)=>[spd(sp),fwdGo(),waitU(seeEdge()),halt(),back(10),turn(18)];
+
+/* 기본 예제 — ① 끝까지 ② 돌아서기 ③ 초음파로 찾기 ④ 전속력 밀기 */
+function example(){
+  return [pairB(),...toEdgeTurn(60),
+    loopF([spd(25),spin(),waitU(seeFoe(120)),halt(),turn(1.8),   // 빔 가장자리에서 걸리므로 한 박자 더 돌아 조준
+           spd(100),fwdGo(),waitU(bOr(seeEdge(),lostFoe(170))),halt(),
+           edgeOrRetry(15)])];
+}
+
+/* ══════════ 상대 로봇 10명 — 이름·국적·전략 ══════════ */
+function progRush(){          // 초음파 없이 무조건 돌진
+  return [pairB(),...toEdgeTurn(70),
+    loopF([spd(100),fwdGo(),waitU(seeEdge()),halt(),spd(50),back(15),turn(9)])];
+}
+function progSeek(sSpin,sPush,see,aim){   // 정석: 탐색 회전 → (조준 보정) → 돌진 → 놓치면 재탐색
+  const mid=aim?[turn(aim)]:[];
+  return [pairB(),...toEdgeTurn(60),
+    loopF([spd(sSpin),spin(),waitU(seeFoe(see)),halt(),...mid,
+           spd(sPush),fwdGo(),waitU(bOr(seeEdge(),lostFoe(170))),halt(),
+           edgeOrRetry(15)])];
+}
+function progGuard(){         // 수비: 끝에서 천천히 훑다가 가까이 오면 반격
+  return [pairB(),...toEdgeTurn(55),
+    loopF([spd(14),spin(),waitU(seeFoe(65)),halt(),turn(1.8),
+           spd(100),fwdGo(),waitU(bOr(seeEdge(),lostFoe(170))),halt(),
+           edgeOrRetry(25)])];
+}
+function progCurve(){         // 압박: 살짝 휘어진 돌진 — 옆구리를 노린다
+  return [pairB(),...toEdgeTurn(65),
+    loopF([spd(30),spin(),waitU(seeFoe(130)),halt(),
+           spd(100),spin(12),waitU(bOr(seeEdge(),lostFoe(170))),halt(),
+           edgeOrRetry(18)])];
+}
+function progRandom(){        // 난수 방향으로 돌진을 반복
+  const tn=nb('steer',{UNIT:'cm'},{STEER:100,VALUE:8});
+  tn.in.VALUE=nb('operator_random',null,{FROM:3,TO:14});
+  return [pairB(),...toEdgeTurn(70),
+    loopF([spd(35),tn,spd(100),fwdGo(),waitU(seeEdge()),halt(),back(12)])];
+}
+function progPatrol(){        // 테두리를 따라 돌다가 보이면 반격
+  const ifel=mk('control_if_else'); ifel.b.COND=seeFoe(60);
+  ifel.body=[spd(100),fwdGo(),waitU(seeEdge()),halt(),spd(70),back(16),turn(9)];
+  ifel.body2=[spd(60),back(8),turn(6)];
+  return [pairB(),...toEdgeTurn(65),
+    loopF([spd(70),spin(-30),waitU(bOr(seeEdge(),seeFoe(45))),halt(),ifel])];
+}
+function progShy(){           // 겁쟁이 — 테두리 안쪽을 맴돌며 도망만 다닌다
+  return [pairB(),spd(40),fwdGo(),waitU(seeEdge()),halt(),
+    loopF([spd(50),back(12),turn(13),spd(40),fwdGo(),waitU(seeEdge()),halt()])];
+}
+const OPPONENTS=[
+ {id:'op10',lvl:1,name:'미아',   nm:{en:'Mia',ja:'ミア',es:'Mia'},               country:'호주',       flag:'🇦🇺', make:progShy},
+ {id:'op5', lvl:2,name:'리암',   nm:{en:'Liam',ja:'リアム',es:'Liam'},           country:'미국',       flag:'🇺🇸', make:progCurve},
+ {id:'op7', lvl:2,name:'디에고', nm:{en:'Diego',ja:'ディエゴ',es:'Diego'},       country:'브라질',     flag:'🇧🇷', make:progRandom},
+ {id:'op9', lvl:4,name:'아르준', nm:{en:'Arjun',ja:'アルジュン',es:'Arjun'},     country:'인도',       flag:'🇮🇳', make:()=>progSeek(25,60,120,1.8)},
+ {id:'op3', lvl:3,name:'왕레이', nm:{en:'Wang Lei',ja:'ワン・レイ',es:'Wang Lei'},country:'중국',      flag:'🇨🇳', make:progRush},
+ {id:'op8', lvl:1,name:'클로에', nm:{en:'Chloé',ja:'クロエ',es:'Chloé'},         country:'프랑스',     flag:'🇫🇷', make:progPatrol},
+ {id:'op2', lvl:3,name:'사쿠라', nm:{en:'Sakura',ja:'さくら',es:'Sakura'},       country:'일본',       flag:'🇯🇵', make:()=>progSeek(45,100,140,0)},
+ {id:'op4', lvl:4,name:'아이샤', nm:{en:'Aisha',ja:'アイシャ',es:'Aisha'},       country:'말레이시아', flag:'🇲🇾', make:progGuard},
+ {id:'op6', lvl:5,name:'엠마',   nm:{en:'Emma',ja:'エマ',es:'Emma'},             country:'독일',       flag:'🇩🇪', make:()=>progSeek(18,100,150,1.8)},
+ {id:'op1', lvl:5,name:'강태산', nm:{en:'Kang Tae-san',ja:'カン・テサン',es:'Kang Tae-san'},country:'대한민국',flag:'🇰🇷', make:()=>progSeek(25,100,120,1.8)},
+];
+/* 가져온 상대 코드 — '코드 가져오기'로 채워진다 */
+let CUSTOM_OPP=null;
+
+/* ══════════ 다국어 (한국어·English·日本語·Español) ══════════
+   블록 문구는 SPIKE 앱 한국어 툴박스에서 추출한 원본이므로 언어와 무관하게 한국어를 유지한다. */
+let LANG='ko';
+const COUNTRIES={
+ '대한민국':{en:'South Korea',ja:'韓国',es:'Corea del Sur'},
+ '일본':{en:'Japan',ja:'日本',es:'Japón'},
+ '중국':{en:'China',ja:'中国',es:'China'},
+ '말레이시아':{en:'Malaysia',ja:'マレーシア',es:'Malasia'},
+ '미국':{en:'USA',ja:'アメリカ',es:'EE. UU.'},
+ '독일':{en:'Germany',ja:'ドイツ',es:'Alemania'},
+ '브라질':{en:'Brazil',ja:'ブラジル',es:'Brasil'},
+ '프랑스':{en:'France',ja:'フランス',es:'Francia'},
+ '인도':{en:'India',ja:'インド',es:'India'},
+ '호주':{en:'Australia',ja:'オーストラリア',es:'Australia'},
+ '영국':{en:'UK',ja:'イギリス',es:'Reino Unido'},
+ '캐나다':{en:'Canada',ja:'カナダ',es:'Canadá'},
+ '스페인':{en:'Spain',ja:'スペイン',es:'España'},
+ '이탈리아':{en:'Italy',ja:'イタリア',es:'Italia'},
+ '태국':{en:'Thailand',ja:'タイ',es:'Tailandia'},
+ '베트남':{en:'Vietnam',ja:'ベトナム',es:'Vietnam'},
+ '인도네시아':{en:'Indonesia',ja:'インドネシア',es:'Indonesia'},
+ '필리핀':{en:'Philippines',ja:'フィリピン',es:'Filipinas'}};
+const countryName=c=>LANG==='ko'?c:((COUNTRIES[c]||{})[LANG]||c);
+const oname=o=>LANG==='ko'?o.name:((o.nm||{})[LANG]||o.name);
+const ocountry=o=>countryName(o.country);
+
+const I18N={
+ko:{
+ ttEyebrow:'RoboRAVE · 스모 종목',
+ ttH1:'로보레이브 스모 — SPIKE 워드블럭 대전 시뮬레이터',
+ ttSub:'워드블럭으로 <b>내 스모 로봇</b>(파랑)을 조립하고, <b>상대 로봇</b>(빨강)을 불러와 대결합니다. 3초간 등을 맞대고 대기한 뒤, 경기장 끝까지 이동해 서로 밀어내기 — 먼저 경기장 밖으로 나가면 패배합니다.',
+ conn:'연결',disconn:'연결 해제',connOn:'연결됨 · USB',connOff:'연결 안 됨',run:'실행',stop:'정지',
+ simTitle:'스모 경기장',modeLab:'모드',mSolo:'혼자 연습',mVs:'상대 불러오기',
+ b10:'10회 자동 대전',b10Title:'화면 없이 빠르게 10판을 돌려 승률을 잽니다',phName:'이름 입력',
+ hubMode:'모드',hubSlot:'슬롯',hubBatt:'배터리',segStream:'스트리밍',segDl:'다운로드',
+ btnDl:'허브에 다운로드',btnErase:'슬롯 비우기',
+ fReset:'경기장 초기화',fExp:'내 코드 내보내기',fImp:'코드 가져오기',fHint:'시작 = 중앙 · 등 맞대고 3초',
+ expTitle:'캔버스의 블록 프로그램을 JSON 파일로 저장합니다',impTitle:'JSON 파일을 캔버스 또는 상대 로봇으로 불러옵니다',
+ hTime:'경기 시간',hScore:'오늘 전적',hState:'현재 동작',hRefl:'D · 반사광',hDist:'A · 거리',hMot:'모터 B / F',
+ stFwd:'전진',stBack:'후진',stTurn:'회전',stDrive:'주행',stMotor:'모터',stStop:'정지',stIdle:'대기',stEnd:'종료',stCount:'대기 (3초)',
+ kWin:'승리',kLose:'패배',kDraw:'무승부',kOut:'이탈',kTimeout:'시간 종료',kProgEnd:'프로그램 종료',kUserStop:'사용자 정지',
+ me:'나',noteStream:'스트리밍 실행 중',noteHub:'허브 단독 실행 중',noteIdle:'대기',
+ hmOff:'허브가 연결되어 있지 않습니다. <b>연결</b>을 누르세요.',
+ hmRun:'실행 중입니다. 주행 중 프로그램을 다시 전송하는 것은 대회 <b>반칙</b>입니다.',
+ hmStream:'<b>스트리밍 모드</b> — 랩탑이 주도합니다. 실시간 센서값을 볼 수 있어 계측·디버깅에 씁니다.',
+ hmEmpty:'슬롯 <b>{s}</b>이(가) 비어 있습니다. <b>허브에 다운로드</b>를 누르세요.',
+ hmDirty:'캔버스를 고쳤지만 슬롯 <b>{s}</b>에는 <b>예전 프로그램</b>이 들어 있습니다. 다시 다운로드하지 않으면 로봇은 예전 대로 움직입니다.',
+ hmReady:'슬롯 <b>{s}</b> 준비 완료. 허브 <b>가운데 버튼</b>을 눌러 실행하세요.',
+ lgConn:'허브 연결됨 — USB',lgDisconn:'허브 연결 해제',
+ lgDl:'슬롯 <b>{s}</b>에 프로그램 다운로드 완료 (블록 {c}개)',lgErase:'슬롯 <b>{s}</b> 비움',
+ lgNoPower:'허브 전원이 꺼져 있습니다 — 먼저 연결하세요.',lgUseStream:'스트리밍 모드에서는 앱의 ▶ 실행을 쓰세요.',
+ lgSlotEmpty:'슬롯 {s}이(가) 비어 있습니다 — 먼저 다운로드하세요.',
+ lgHubRun:'허브 버튼 실행 — 슬롯 {s}',lgStale:' (캔버스와 다른 예전 프로그램)',lgStreamRun:'스트리밍 실행 — 캔버스의 프로그램',
+ lgOpp:'상대: {f} <b>{n}</b> ({c}) — 등을 맞대고 {s}초 대기',lgGo:'<b>경기 시작!</b>',
+ lgWin:'<b>승리!</b> {f} {n} 로봇이 먼저 경기장을 벗어났습니다',lgLose:'<b>패배</b> — 내 로봇이 먼저 경기장을 벗어났습니다',
+ lgDraw:'<b>무승부</b> — 승부가 나지 않았습니다',lgOut:'<b>바퀴 이탈 — 연습 종료</b>',
+ vWin:'{n} 승리! — {t}초',vLose:'{f} {n} 승리 — {t}초',vOther:'{k} — {t}초',
+ fmtScore:'{w}승 {l}패',fmtDraw:' {d}무',
+ lgVsOnly:'상대 불러오기 모드에서만 자동 대전을 할 수 있습니다.',
+ lgB10:'⚡ <b>자동 대전 10판</b> vs {f} {n} — <b>{w}승 {l}패 {d}무</b> (승률 {p}%) · 캔버스의 현재 블록 기준',
+ lgLeague:'🏆 <b>리그전 완료</b> — 상대 10명이 서로 {c}판을 겨뤘습니다. 아래 랭킹이 갱신되었습니다.',
+ lgLbReset:'전적을 모두 지웠습니다.',lgNoBlocks:'내보낼 블록이 없습니다.',
+ lgNeedName:'내보내기 전에 <b>이름과 국적</b>을 먼저 적어 주세요 — 경기장 위 입력칸.',
+ lgExported:'↧ <b>{n}.sumo.json</b> 저장 — 저장소의 <b>codes/</b> 폴더에 넣고 커밋하면 깃에 보관됩니다.',
+ lgBadFile:'읽을 수 없는 파일입니다 — 이 시뮬레이터에서 내보낸 .sumo.json이어야 합니다.',
+ cfImport:"'{n}' 코드를 상대 로봇으로 불러올까요?\n(취소를 누르면 내 캔버스의 블록을 이 코드로 바꿉니다)",
+ lgImpOpp:'↥ 상대 로봇으로 불러옴 — <b>{n}</b>. 허브 버튼으로 대결을 시작하세요.',
+ lgImpCanvas:'↥ 내 캔버스로 불러옴 — <b>{n}</b> (블록을 다시 다운로드해야 허브에 반영됩니다)',
+ optCustom:'🏳️ {n} (가져온 코드)',
+ logEmpty:'허브를 연결하고 프로그램을 다운로드한 뒤, 허브 가운데 버튼을 누르세요.',
+ flynote:'마이 블록과 이 로봇에 없는 센서 블록은 넣지 않았습니다.',
+ asmCard:'조립 카드 (Google Drive)',varMake:'변수 만들기',varPrompt:'새 변수 이름',varDup:'이미 있는 변수 이름입니다.',
+ varLong:'변수 이름이 너무 깁니다 (20자 이내).',varMade:"'{n}' 변수를 만들었습니다 — 변수 블록의 드롭다운에서 고를 수 있습니다.",
+ palHat:'시작 블록은 이미 캔버스에 있습니다',palAdd:'눌러서 추가 · 끌어다 놓아도 됩니다',
+ selNone:'블록을 눌러서 추가하거나 끌어다 놓으세요',
+ selBody:'반복·조건 블록 안이 선택됨 — 팔레트 블록을 누르면 이 안에 들어갑니다',
+ selSlot:'빈 칸이 선택됨 — 팔레트의 둥근/각진 블록을 누르면 여기 들어갑니다',
+ selBlock:'블록이 선택됨 — 팔레트 블록을 누르면 이 다음에 들어갑니다',
+ errPickSlot:'먼저 캔버스에서 넣을 빈 칸(회색 칸이나 숫자 칸)을 누르세요.',
+ errRound:'「거리」·「반사광」·「타이머」 같은 둥근 블록은 조건 자리에 바로 들어가지 않습니다 — 연산의 「( ) < ( )」에 먼저 끼운 뒤, 그 블록을 조건 자리에 넣으세요.',
+ errBoolShort:'조건 블록(각진 모양)은 숫자 자리에 들어가지 않습니다.',
+ errBoolLong:'조건 블록(각진 모양)은 숫자 자리에 들어가지 않습니다. 숫자 자리에는 둥근 블록이나 숫자를 넣으세요.',
+ emptyHint:'팔레트 블록을 누르거나 여기로 끌어다 놓으세요',
+ lbTitle:'랭킹 — 1위부터 10위까지',
+ lbLede:'대전 결과가 쌓일 때마다 순위가 바뀝니다. 내 로봇(파랑 줄)의 이름과 국적은 경기장 위 입력칸에서 바꿀 수 있습니다. 전적은 이 브라우저에 저장됩니다.',
+ thRank:'순위',thBot:'로봇 · 국적',thRec:'전적 (승-패-무)',thRate:'승률',
+ btnLeagueTxt:'🏆 상대 10명 리그전 돌리기',btnLbResetTxt:'전적 초기화',
+ leagueHint:'리그전은 상대 로봇 10명끼리 각 2판씩(총 90판) 자동 대전합니다 — 약 2~3초.',
+ lv1:'1단계 · 입문',lv2:'2단계 · 초급',lv3:'3단계 · 중급',lv4:'4단계 · 상급',lv5:'5단계 · 챔피언',
+ cArena:'경기장 실측값',cArenaNote:'대회 당일 재측정',
+ pDia:'경기장 지름 <em>흰 테두리 바깥 지름</em>',pBorder:'흰 테두리 폭 <em>경계선 두께</em>',pMatch:'제한 시간 <em>초 — 넘기면 무승부</em>',
+ cRobot:'로봇 실측값',cRobotNote:'두 로봇 공통',
+ pWheel:'바퀴 지름 <em>레고 실리콘 56 mm</em>',pTrack:'좌우 바퀴 간격 <em>제자리 회전 각도 계산</em>',pVmax:'100% 주행 속도 <em>배터리 100% 기준</em>',
+ cErr:'현실 오차',cErrNote:'감이 아니라 값으로',
+ pSlip:'바퀴 미끄러짐 <em>좌우 바퀴 속도 차 ±%</em>',pBeam:'초음파 유효 감지각 <em>상대 로봇 ±°</em>',pNoise:'반사광 노이즈 <em>조명 흔들림 ±%</em>',
+ footNote:'로보레이브 스모 종목의 세부 규격(경기장 지름·제한 시간)은 대회마다 다를 수 있어 위 입력칸으로 맞춥니다. 카테고리 색·블록 문구·순서는 SPIKE 앱 3.6.1 한국어 툴박스에서 직접 추출했습니다.',
+ footCache:'화면이 옛날 것 같으면 강력 새로고침 하세요 (Windows <b>Ctrl+F5</b> · Mac <b>⌘⇧R</b>)'
+},
+en:{
+ ttEyebrow:'RoboRAVE · Sumo Event',
+ ttH1:'RoboRAVE Sumo — SPIKE Word-Block Battle Simulator',
+ ttSub:'Build <b>your sumo robot</b> (blue) with word blocks and battle <b>opponent robots</b> (red). Back-to-back for 3 seconds, drive to the edge, then push — the first robot out of the ring loses.',
+ conn:'Connect',disconn:'Disconnect',connOn:'Connected · USB',connOff:'Not connected',run:'Run',stop:'Stop',
+ simTitle:'Sumo Ring',modeLab:'Mode',mSolo:'Practice alone',mVs:'Load opponent',
+ b10:'Auto-battle ×10',b10Title:'Runs 10 quick matches headlessly and reports your win rate',phName:'Your name',
+ hubMode:'Mode',hubSlot:'Slot',hubBatt:'Battery',segStream:'Streaming',segDl:'Download',
+ btnDl:'Download to hub',btnErase:'Erase slot',
+ fReset:'Reset ring',fExp:'Export my code',fImp:'Import code',fHint:'Start = center · back-to-back, 3 s',
+ expTitle:'Saves the canvas program as a JSON file',impTitle:'Load a JSON file into the canvas or as an opponent',
+ hTime:'Match time',hScore:'Today',hState:'Current action',hRefl:'D · Reflection',hDist:'A · Distance',hMot:'Motors B / F',
+ stFwd:'Forward',stBack:'Reverse',stTurn:'Turning',stDrive:'Driving',stMotor:'Motor',stStop:'Stopped',stIdle:'Idle',stEnd:'Finished',stCount:'Waiting (3 s)',
+ kWin:'Victory',kLose:'Defeat',kDraw:'Draw',kOut:'Out of ring',kTimeout:'Time up',kProgEnd:'Program ended',kUserStop:'Stopped by user',
+ me:'Me',noteStream:'Streaming run',noteHub:'Hub-only run',noteIdle:'Idle',
+ hmOff:'Hub is not connected. Press <b>Connect</b>.',
+ hmRun:'Running. Re-sending a program mid-match is a <b>foul</b> in competition.',
+ hmStream:'<b>Streaming mode</b> — the laptop drives. Live sensor values are visible; good for debugging.',
+ hmEmpty:'Slot <b>{s}</b> is empty. Press <b>Download to hub</b>.',
+ hmDirty:'You edited the canvas, but slot <b>{s}</b> still holds the <b>old program</b>. Without re-downloading, the robot runs the old one.',
+ hmReady:'Slot <b>{s}</b> ready. Press the hub <b>center button</b> to run.',
+ lgConn:'Hub connected — USB',lgDisconn:'Hub disconnected',
+ lgDl:'Program downloaded to slot <b>{s}</b> ({c} blocks)',lgErase:'Slot <b>{s}</b> erased',
+ lgNoPower:'Hub is off — connect first.',lgUseStream:'In streaming mode use the app ▶ Run button.',
+ lgSlotEmpty:'Slot {s} is empty — download first.',
+ lgHubRun:'Hub button run — slot {s}',lgStale:' (old program, differs from canvas)',lgStreamRun:'Streaming run — canvas program',
+ lgOpp:'Opponent: {f} <b>{n}</b> ({c}) — back-to-back, waiting {s} s',lgGo:'<b>Fight!</b>',
+ lgWin:'<b>Victory!</b> {f} {n} left the ring first',lgLose:'<b>Defeat</b> — my robot left the ring first',
+ lgDraw:'<b>Draw</b> — no decision',lgOut:'<b>Wheels out — practice over</b>',
+ vWin:'{n} wins! — {t} s',vLose:'{f} {n} wins — {t} s',vOther:'{k} — {t} s',
+ fmtScore:'{w} W {l} L',fmtDraw:' {d} D',
+ lgVsOnly:'Auto-battle needs "Load opponent" mode.',
+ lgB10:'⚡ <b>Auto-battle ×10</b> vs {f} {n} — <b>{w} W {l} L {d} D</b> ({p}% win rate) · uses current canvas blocks',
+ lgLeague:'🏆 <b>League finished</b> — the 10 opponents played {c} matches. Ranking updated below.',
+ lgLbReset:'All records cleared.',lgNoBlocks:'No blocks to export.',
+ lgNeedName:'Enter your <b>name and country</b> above the ring before exporting.',
+ lgExported:'↧ Saved <b>{n}.sumo.json</b> — commit it into the repo <b>codes/</b> folder to keep it in git.',
+ lgBadFile:'Unreadable file — must be a .sumo.json exported from this simulator.',
+ cfImport:'Load "{n}" as the opponent robot?\n(Cancel loads it into your canvas instead)',
+ lgImpOpp:'↥ Loaded as opponent — <b>{n}</b>. Press the hub button to fight.',
+ lgImpCanvas:'↥ Loaded into canvas — <b>{n}</b> (re-download to the hub to take effect)',
+ optCustom:'🏳️ {n} (imported)',
+ logEmpty:'Connect the hub, download your program, then press the hub center button.',
+ flynote:'My Blocks and sensors this robot lacks are omitted.',
+ asmCard:'Assembly card (Google Drive)',varMake:'Make a Variable',varPrompt:'New variable name',varDup:'That variable name already exists.',
+ varLong:'Variable name too long (max 20).',varMade:"Variable '{n}' created — pick it in the variable block dropdowns.",
+ palHat:'The start block is already on the canvas',palAdd:'Tap to add · or drag & drop',
+ selNone:'Tap a palette block to add it, or drag & drop',
+ selBody:'Inside a loop/if block selected — palette blocks go inside it',
+ selSlot:'Empty slot selected — round/hex palette blocks go here',
+ selBlock:'Block selected — palette blocks insert after it',
+ errPickSlot:'First tap the empty slot (gray or number field) on the canvas.',
+ errRound:'Round blocks (distance, reflection, timer) cannot go straight into a condition — put them into an operator like "( ) < ( )" first.',
+ errBoolShort:'Condition (hex) blocks do not fit number slots.',
+ errBoolLong:'Condition (hex) blocks do not fit number slots — use round blocks or numbers there.',
+ emptyHint:'Tap a palette block or drag it here',
+ lbTitle:'Ranking — Top 10',
+ lbLede:'Rankings update as results accumulate. Set your robot name and country above the ring. Records are stored in this browser.',
+ thRank:'Rank',thBot:'Robot · Country',thRec:'Record (W-L-D)',thRate:'Win rate',
+ btnLeagueTxt:'🏆 Run 10-bot league',btnLbResetTxt:'Reset records',
+ leagueHint:'The league auto-plays 2 matches per pair among the 10 bots (90 total) — about 2–3 s.',
+ lv1:'Level 1 · Rookie',lv2:'Level 2 · Basic',lv3:'Level 3 · Intermediate',lv4:'Level 4 · Advanced',lv5:'Level 5 · Champion',
+ cArena:'Arena measurements',cArenaNote:'re-measure on match day',
+ pDia:'Ring diameter <em>outer edge of white border</em>',pBorder:'White border width <em>line thickness</em>',pMatch:'Time limit <em>seconds — draw if exceeded</em>',
+ cRobot:'Robot measurements',cRobotNote:'shared by both robots',
+ pWheel:'Wheel diameter <em>LEGO 56 mm tire</em>',pTrack:'Wheel track <em>used for turn geometry</em>',pVmax:'Speed at 100% <em>with full battery</em>',
+ cErr:'Real-world error',cErrNote:'numbers, not vibes',
+ pSlip:'Wheel slip <em>L/R speed difference ±%</em>',pBeam:'Ultrasonic beam angle <em>vs opponent ±°</em>',pNoise:'Reflection noise <em>lighting jitter ±%</em>',
+ footNote:'Exact sumo specs (ring size, time limit) vary by event — adjust with the fields above. Block wording, colors and order were extracted from the Korean SPIKE app 3.6.1 toolbox; other languages follow the SPIKE app wording for each language.',
+ footCache:'If the page looks outdated, hard-refresh (Windows <b>Ctrl+F5</b> · Mac <b>⌘⇧R</b>)'
+},
+ja:{
+ ttEyebrow:'RoboRAVE・相撲種目',
+ ttH1:'ロボレイブ相撲 — SPIKEワードブロック対戦シミュレーター',
+ ttSub:'ワードブロックで<b>自分の相撲ロボット</b>(青)を組み、<b>相手ロボット</b>(赤)と対戦。3秒間背中合わせで待ち、リングの端まで進んでから押し合い — 先に場外に出た方が負けです。',
+ conn:'接続',disconn:'切断',connOn:'接続中・USB',connOff:'未接続',run:'実行',stop:'停止',
+ simTitle:'相撲リング',modeLab:'モード',mSolo:'ひとりで練習',mVs:'相手を呼ぶ',
+ b10:'自動対戦×10',b10Title:'画面なしで10試合を高速実行し勝率を測ります',phName:'名前を入力',
+ hubMode:'モード',hubSlot:'スロット',hubBatt:'バッテリー',segStream:'ストリーミング',segDl:'ダウンロード',
+ btnDl:'ハブへダウンロード',btnErase:'スロットを消去',
+ fReset:'リングをリセット',fExp:'コードを書き出す',fImp:'コードを読み込む',fHint:'開始=中央・背中合わせ3秒',
+ expTitle:'キャンバスのプログラムをJSONファイルに保存',impTitle:'JSONをキャンバスまたは相手として読み込み',
+ hTime:'試合時間',hScore:'本日の戦績',hState:'現在の動作',hRefl:'D・反射光',hDist:'A・距離',hMot:'モーター B / F',
+ stFwd:'前進',stBack:'後退',stTurn:'回転',stDrive:'走行',stMotor:'モーター',stStop:'停止',stIdle:'待機',stEnd:'終了',stCount:'待機(3秒)',
+ kWin:'勝ち',kLose:'負け',kDraw:'引き分け',kOut:'場外',kTimeout:'時間切れ',kProgEnd:'プログラム終了',kUserStop:'ユーザー停止',
+ me:'わたし',noteStream:'ストリーミング実行中',noteHub:'ハブ単独実行中',noteIdle:'待機',
+ hmOff:'ハブが未接続です。<b>接続</b>を押してください。',
+ hmRun:'実行中です。走行中のプログラム再送信は大会では<b>反則</b>です。',
+ hmStream:'<b>ストリーミングモード</b> — PCが主導。センサー値をリアルタイムで確認でき、デバッグ向き。',
+ hmEmpty:'スロット<b>{s}</b>は空です。<b>ハブへダウンロード</b>を押してください。',
+ hmDirty:'キャンバスを編集しましたが、スロット<b>{s}</b>には<b>古いプログラム</b>が入っています。再ダウンロードしないと古いまま動きます。',
+ hmReady:'スロット<b>{s}</b>準備完了。ハブの<b>中央ボタン</b>で実行。',
+ lgConn:'ハブ接続 — USB',lgDisconn:'ハブ切断',
+ lgDl:'スロット<b>{s}</b>へダウンロード完了(ブロック{c}個)',lgErase:'スロット<b>{s}</b>を消去',
+ lgNoPower:'ハブの電源が入っていません — まず接続してください。',lgUseStream:'ストリーミングモードではアプリの▶実行を使ってください。',
+ lgSlotEmpty:'スロット{s}は空です — まずダウンロードしてください。',
+ lgHubRun:'ハブボタン実行 — スロット{s}',lgStale:'(キャンバスと異なる古いプログラム)',lgStreamRun:'ストリーミング実行 — キャンバスのプログラム',
+ lgOpp:'相手: {f} <b>{n}</b>({c}) — 背中合わせで{s}秒待機',lgGo:'<b>試合開始!</b>',
+ lgWin:'<b>勝ち!</b> {f} {n}が先に場外に出ました',lgLose:'<b>負け</b> — 自分のロボットが先に場外へ',
+ lgDraw:'<b>引き分け</b> — 勝負がつきませんでした',lgOut:'<b>車輪が場外 — 練習終了</b>',
+ vWin:'{n}の勝ち! — {t}秒',vLose:'{f} {n}の勝ち — {t}秒',vOther:'{k} — {t}秒',
+ fmtScore:'{w}勝{l}敗',fmtDraw:'{d}分',
+ lgVsOnly:'自動対戦は「相手を呼ぶ」モードのみ使えます。',
+ lgB10:'⚡ <b>自動対戦10試合</b> vs {f} {n} — <b>{w}勝{l}敗{d}分</b>(勝率{p}%)・現在のキャンバス基準',
+ lgLeague:'🏆 <b>リーグ戦終了</b> — 相手10体が{c}試合を対戦。下のランキングを更新しました。',
+ lgLbReset:'戦績をすべて消去しました。',lgNoBlocks:'書き出すブロックがありません。',
+ lgNeedName:'書き出す前にリング上の入力欄で<b>名前と国</b>を入力してください。',
+ lgExported:'↧ <b>{n}.sumo.json</b>を保存 — リポジトリの<b>codes/</b>に入れてコミットすればgitに保管されます。',
+ lgBadFile:'読めないファイルです — 本シミュレーターで書き出した.sumo.jsonが必要です。',
+ cfImport:'「{n}」を相手ロボットとして読み込みますか?\n(キャンセルで自分のキャンバスに読み込みます)',
+ lgImpOpp:'↥ 相手として読み込み — <b>{n}</b>。ハブボタンで対戦開始。',
+ lgImpCanvas:'↥ キャンバスへ読み込み — <b>{n}</b>(ハブへ再ダウンロードが必要)',
+ optCustom:'🏳️ {n}(読み込み)',
+ logEmpty:'ハブを接続しプログラムをダウンロードして、ハブの中央ボタンを押してください。',
+ flynote:'マイブロックと本ロボットに無いセンサーのブロックは省いています。',
+ asmCard:'組み立てカード(Google Drive)',varMake:'変数を作る',varPrompt:'新しい変数の名前',varDup:'その変数名はすでにあります。',
+ varLong:'変数名が長すぎます(20文字まで)。',varMade:"変数「{n}」を作りました — 変数ブロックのドロップダウンで選べます。",
+ palHat:'開始ブロックはすでにキャンバスにあります',palAdd:'タップで追加・ドラッグも可',
+ selNone:'ブロックをタップして追加、またはドラッグしてください',
+ selBody:'ループ/条件の中を選択中 — パレットのブロックはこの中に入ります',
+ selSlot:'空きスロット選択中 — 丸/六角ブロックがここに入ります',
+ selBlock:'ブロック選択中 — 次の位置に挿入されます',
+ errPickSlot:'まずキャンバスの空きスロット(グレー/数値欄)をタップしてください。',
+ errRound:'丸ブロック(距離・反射光・タイマー)は条件枠に直接入りません — 演算「( ) < ( )」に入れてから条件枠へ。',
+ errBoolShort:'条件(六角)ブロックは数値欄に入りません。',
+ errBoolLong:'条件ブロックは数値欄に入りません。丸ブロックか数値を入れてください。',
+ emptyHint:'パレットのブロックをタップするか、ここへドラッグ',
+ lbTitle:'ランキング — 1位から10位',
+ lbLede:'対戦結果でランキングが変わります。名前と国はリング上の入力欄で設定できます。戦績はこのブラウザに保存されます。',
+ thRank:'順位',thBot:'ロボット・国',thRec:'戦績(勝-敗-分)',thRate:'勝率',
+ btnLeagueTxt:'🏆 相手10体でリーグ戦',btnLbResetTxt:'戦績リセット',
+ leagueHint:'リーグ戦は相手10体が各2試合(計90試合)を自動対戦します — 約2〜3秒。',
+ lv1:'レベル1・入門',lv2:'レベル2・初級',lv3:'レベル3・中級',lv4:'レベル4・上級',lv5:'レベル5・チャンピオン',
+ cArena:'リング実測値',cArenaNote:'大会当日に再計測',
+ pDia:'リング直径 <em>白い縁の外径</em>',pBorder:'白い縁の幅 <em>境界線の太さ</em>',pMatch:'制限時間 <em>秒 — 超えたら引き分け</em>',
+ cRobot:'ロボット実測値',cRobotNote:'両ロボット共通',
+ pWheel:'タイヤ直径 <em>レゴ56mm</em>',pTrack:'左右ホイール間隔 <em>回転角の計算用</em>',pVmax:'100%走行速度 <em>バッテリー100%時</em>',
+ cErr:'現実の誤差',cErrNote:'勘ではなく数値で',
+ pSlip:'ホイールスリップ <em>左右速度差±%</em>',pBeam:'超音波の有効角 <em>相手検出±°</em>',pNoise:'反射光ノイズ <em>照明の揺れ±%</em>',
+ footNote:'リング寸法や制限時間は大会により異なるため、上の入力欄で調整してください。ブロックの文言・色は韓国語版SPIKEアプリ3.6.1から抽出したものを基準に、各言語のSPIKEアプリの表現に合わせて表示します。',
+ footCache:'表示が古い場合は強制リロードしてください (Windows <b>Ctrl+F5</b> · Mac <b>⌘⇧R</b>)'
+},
+es:{
+ ttEyebrow:'RoboRAVE · Sumo',
+ ttH1:'RoboRAVE Sumo — Simulador de combate con bloques SPIKE',
+ ttSub:'Arma <b>tu robot de sumo</b> (azul) con bloques de palabras y compite contra <b>robots rivales</b> (rojo). Espalda con espalda 3 segundos, avanza hasta el borde y empuja — el primero en salir del ring pierde.',
+ conn:'Conectar',disconn:'Desconectar',connOn:'Conectado · USB',connOff:'Sin conexión',run:'Ejecutar',stop:'Detener',
+ simTitle:'Ring de sumo',modeLab:'Modo',mSolo:'Práctica solo',mVs:'Cargar rival',
+ b10:'Auto-combate ×10',b10Title:'Corre 10 combates rápidos sin pantalla y mide tu tasa de victorias',phName:'Tu nombre',
+ hubMode:'Modo',hubSlot:'Ranura',hubBatt:'Batería',segStream:'Streaming',segDl:'Descarga',
+ btnDl:'Descargar al hub',btnErase:'Vaciar ranura',
+ fReset:'Reiniciar ring',fExp:'Exportar mi código',fImp:'Importar código',fHint:'Inicio = centro · espalda con espalda 3 s',
+ expTitle:'Guarda el programa del lienzo como archivo JSON',impTitle:'Carga un JSON al lienzo o como rival',
+ hTime:'Tiempo',hScore:'Marcador de hoy',hState:'Acción actual',hRefl:'D · Reflexión',hDist:'A · Distancia',hMot:'Motores B / F',
+ stFwd:'Avance',stBack:'Retroceso',stTurn:'Giro',stDrive:'Marcha',stMotor:'Motor',stStop:'Parado',stIdle:'Espera',stEnd:'Fin',stCount:'Espera (3 s)',
+ kWin:'Victoria',kLose:'Derrota',kDraw:'Empate',kOut:'Fuera del ring',kTimeout:'Tiempo agotado',kProgEnd:'Programa terminado',kUserStop:'Detenido por el usuario',
+ me:'Yo',noteStream:'Ejecución streaming',noteHub:'Ejecución del hub',noteIdle:'En espera',
+ hmOff:'El hub no está conectado. Pulsa <b>Conectar</b>.',
+ hmRun:'En marcha. Reenviar el programa durante el combate es <b>falta</b> en competición.',
+ hmStream:'<b>Modo streaming</b> — dirige el portátil. Se ven los sensores en vivo; útil para depurar.',
+ hmEmpty:'La ranura <b>{s}</b> está vacía. Pulsa <b>Descargar al hub</b>.',
+ hmDirty:'Editaste el lienzo, pero la ranura <b>{s}</b> aún tiene el <b>programa antiguo</b>. Sin re-descargar, el robot usará el antiguo.',
+ hmReady:'Ranura <b>{s}</b> lista. Pulsa el <b>botón central</b> del hub para ejecutar.',
+ lgConn:'Hub conectado — USB',lgDisconn:'Hub desconectado',
+ lgDl:'Programa descargado en la ranura <b>{s}</b> ({c} bloques)',lgErase:'Ranura <b>{s}</b> vaciada',
+ lgNoPower:'El hub está apagado — conecta primero.',lgUseStream:'En modo streaming usa ▶ Ejecutar de la app.',
+ lgSlotEmpty:'La ranura {s} está vacía — descarga primero.',
+ lgHubRun:'Ejecución con botón del hub — ranura {s}',lgStale:' (programa antiguo, distinto del lienzo)',lgStreamRun:'Ejecución streaming — programa del lienzo',
+ lgOpp:'Rival: {f} <b>{n}</b> ({c}) — espalda con espalda, {s} s de espera',lgGo:'<b>¡A luchar!</b>',
+ lgWin:'<b>¡Victoria!</b> {f} {n} salió primero del ring',lgLose:'<b>Derrota</b> — mi robot salió primero del ring',
+ lgDraw:'<b>Empate</b> — sin decisión',lgOut:'<b>Ruedas fuera — fin de la práctica</b>',
+ vWin:'¡Gana {n}! — {t} s',vLose:'Gana {f} {n} — {t} s',vOther:'{k} — {t} s',
+ fmtScore:'{w} V {l} D',fmtDraw:' {d} E',
+ lgVsOnly:'El auto-combate requiere el modo "Cargar rival".',
+ lgB10:'⚡ <b>Auto-combate ×10</b> vs {f} {n} — <b>{w} V {l} D {d} E</b> ({p}% de victorias) · con los bloques actuales',
+ lgLeague:'🏆 <b>Liga terminada</b> — los 10 rivales jugaron {c} combates. Ranking actualizado abajo.',
+ lgLbReset:'Se borraron todos los registros.',lgNoBlocks:'No hay bloques para exportar.',
+ lgNeedName:'Escribe tu <b>nombre y país</b> sobre el ring antes de exportar.',
+ lgExported:'↧ Guardado <b>{n}.sumo.json</b> — súbelo a la carpeta <b>codes/</b> del repositorio para conservarlo en git.',
+ lgBadFile:'Archivo ilegible — debe ser un .sumo.json exportado desde este simulador.',
+ cfImport:'¿Cargar "{n}" como robot rival?\n(Cancelar lo carga en tu lienzo)',
+ lgImpOpp:'↥ Cargado como rival — <b>{n}</b>. Pulsa el botón del hub para luchar.',
+ lgImpCanvas:'↥ Cargado en el lienzo — <b>{n}</b> (re-descarga al hub para aplicarlo)',
+ optCustom:'🏳️ {n} (importado)',
+ logEmpty:'Conecta el hub, descarga tu programa y pulsa el botón central del hub.',
+ flynote:'Se omiten Mis bloques y los sensores que este robot no tiene.',
+ asmCard:'Guía de montaje (Google Drive)',varMake:'Crear una variable',varPrompt:'Nombre de la nueva variable',varDup:'Ese nombre de variable ya existe.',
+ varLong:'Nombre demasiado largo (máx. 20).',varMade:"Variable '{n}' creada — elígela en los desplegables de los bloques de variable.",
+ palHat:'El bloque de inicio ya está en el lienzo',palAdd:'Toca para añadir · o arrastra',
+ selNone:'Toca un bloque de la paleta para añadirlo o arrástralo',
+ selBody:'Interior de bucle/condición seleccionado — los bloques irán dentro',
+ selSlot:'Hueco vacío seleccionado — los bloques redondos/hexagonales van aquí',
+ selBlock:'Bloque seleccionado — se insertará después de él',
+ errPickSlot:'Primero toca el hueco vacío (gris o numérico) en el lienzo.',
+ errRound:'Los bloques redondos (distancia, reflexión, temporizador) no van directo a una condición — mételos antes en "( ) < ( )".',
+ errBoolShort:'Los bloques de condición no caben en huecos numéricos.',
+ errBoolLong:'Los bloques de condición no caben en huecos numéricos — usa bloques redondos o números.',
+ emptyHint:'Toca un bloque de la paleta o arrástralo aquí',
+ lbTitle:'Ranking — Top 10',
+ lbLede:'El ranking cambia con los resultados. Configura tu nombre y país sobre el ring. Los registros se guardan en este navegador.',
+ thRank:'Puesto',thBot:'Robot · País',thRec:'Registro (V-D-E)',thRate:'% Victorias',
+ btnLeagueTxt:'🏆 Liga de 10 rivales',btnLbResetTxt:'Borrar registros',
+ leagueHint:'La liga juega 2 combates por pareja entre los 10 bots (90 en total) — unos 2–3 s.',
+ lv1:'Nivel 1 · Novato',lv2:'Nivel 2 · Básico',lv3:'Nivel 3 · Intermedio',lv4:'Nivel 4 · Avanzado',lv5:'Nivel 5 · Campeón',
+ cArena:'Medidas del ring',cArenaNote:'medir el día del torneo',
+ pDia:'Diámetro del ring <em>borde blanco exterior</em>',pBorder:'Ancho del borde <em>grosor de la línea</em>',pMatch:'Tiempo límite <em>segundos — empate al agotarse</em>',
+ cRobot:'Medidas del robot',cRobotNote:'común a ambos robots',
+ pWheel:'Diámetro de rueda <em>LEGO 56 mm</em>',pTrack:'Distancia entre ruedas <em>para el giro</em>',pVmax:'Velocidad al 100% <em>con batería llena</em>',
+ cErr:'Errores reales',cErrNote:'con números, no intuición',
+ pSlip:'Deslizamiento <em>dif. izq/der ±%</em>',pBeam:'Ángulo del ultrasonido <em>±°</em>',pNoise:'Ruido de reflexión <em>±%</em>',
+ footNote:'Las especificaciones exactas (diámetro del ring, tiempo límite) varían según el torneo — ajústalas con los campos de arriba. Los bloques se extrajeron de la app SPIKE 3.6.1 en coreano y se muestran siguiendo los textos de la app SPIKE en cada idioma.',
+ footCache:'Si la página se ve desactualizada, recarga forzando (Windows <b>Ctrl+F5</b> · Mac <b>⌘⇧R</b>)'
+}};
+const t9=(k)=>((I18N[LANG]||{})[k])??I18N.ko[k]??k;
+const tf=(k,p)=>{let s=t9(k); for(const x in (p||{})) s=s.split('{'+x+'}').join(p[x]); return s;};
+const KLBL={'승리':'kWin','패배':'kLose','무승부':'kDraw','이탈':'kOut','시간 종료':'kTimeout','프로그램 종료':'kProgEnd','사용자 정지':'kUserStop'};
+const kLabel=k=>t9(KLBL[k]||k);
+const SLBL={'전진':'stFwd','후진':'stBack','회전':'stTurn','주행':'stDrive','모터':'stMotor','정지':'stStop','대기':'stIdle','종료':'stEnd'};
+const stLabel=s=>t9(SLBL[s]||s);
+
+/* ── 본문 문서 (언어별 통짜 HTML) — 폼 요소가 없어 innerHTML 교체가 안전하다 ── */
+const DOCS={
+ko:`
+<h2>스모 규칙 (시뮬레이터 적용)</h2>
+<div class="tablewrap" style="margin-bottom:18px"><table>
+ <thead><tr><th>항목</th><th>내용</th></tr></thead><tbody>
+ <tr><td><b>시작</b></td><td>두 로봇이 경기장 정중앙에서 <b>등을 맞대고</b> 서로 반대쪽을 봅니다. <b>3초 카운트다운</b>이 끝나는 순간 두 프로그램이 동시에 시작됩니다.</td></tr>
+ <tr><td><b>전개</b></td><td>로봇은 먼저 <b>경기장 끝(흰 테두리)까지 이동</b>한 뒤 돌아서서 상대를 찾아 밀어냅니다.</td></tr>
+ <tr><td><b>승패</b></td><td>바퀴가 흰 테두리를 넘어 <b>먼저 경기장 밖으로 나간 로봇이 패배</b>합니다. 스스로 나가도 패배입니다.</td></tr>
+ <tr><td><b>시간</b></td><td>제한 시간 안에 승부가 나지 않으면 <b>무승부</b>입니다.</td></tr>
+ <tr><td><b>공정성</b></td><td>두 로봇은 같은 하드웨어(모터 B+F · 컬러 D · 초음파 A)·배터리·물리 조건으로 겨룹니다. 차이는 오직 <b>프로그램</b>뿐입니다.</td></tr>
+</tbody></table></div>
+
+<h2>모의전 — 1단계부터 5단계까지</h2>
+<p class="lede" style="margin-bottom:18px">상대 로봇 10명이 <b>1단계(입문)부터 5단계(챔피언)까지</b> 두 명씩 있습니다. 경기장 위에서 단계를 고르고 1단계부터 차례로 이겨 보세요. <b>⚡ 10회 자동 대전</b>을 누르면 화면 없이 10판을 돌려 승률을 알려줍니다.</p>
+
+<div class="callout" style="margin-bottom:18px"><b>이기는 로봇의 세 가지 습관.</b>
+ ① <b>테두리에서 즉시 살아나기</b> — 반사광 조건을 놓치면 스스로 떨어집니다.
+ ② <b>탐색 회전은 천천히</b> — 빠르게 돌면 초음파가 상대를 지나쳐 버립니다.
+ ③ <b>밀 때는 전속력</b> — 밀어내기는 출력 대 출력의 힘 싸움입니다.</div>
+
+<h2>코드 저장과 공유 — 승률 좋은 코드를 깃에</h2>
+<p class="lede"><b>내보내기 전에 경기장 위 입력칸에 이름과 국적을 먼저 적으세요</b> — 파일에 함께 저장되어 누구의 코드인지 알 수 있습니다.</p>
+<ol class="steps" style="margin-bottom:18px">
+ <li><b>승률 재기</b>상대를 고르고 <b>⚡ 10회 자동 대전</b>으로 승률을 잽니다.</li>
+ <li><b>내보내기</b>이름·국적을 적고 <b>↧ 내 코드 내보내기</b> — <code>이름.sumo.json</code>으로 저장됩니다.</li>
+ <li><b>깃에 저장</b>파일을 저장소의 <code>codes/</code> 폴더에 넣고 커밋: <code>git add codes/ && git commit && git push</code></li>
+ <li><b>불러오기</b>친구의 파일은 <b>↥ 코드 가져오기</b>로 읽어 <b>상대 로봇으로</b> 대결시킵니다.</li>
+</ol>
+
+<h2>두 로봇, 같은 몸, 다른 머리</h2>
+<p class="lede">🔧 <a href="https://drive.google.com/file/d/1hNueBQCRkNeAL3DK85-qIdXuH-d0Ql3q/view?usp=drive_link" target="_blank" rel="noopener">조립 카드 (Google Drive)</a> — 두 로봇 모두 이 카드로 조립한 로봇 기준입니다.</p>
+<div class="tablewrap"><table>
+ <thead><tr><th>항목</th><th>값</th><th>비고</th></tr></thead><tbody>
+ <tr><td><b>포트 배치</b></td><td class="n">B·F / D / A</td><td>왼쪽·오른쪽 모터 / 컬러 센서(바닥) / 초음파 센서(정면) — 두 로봇 동일</td></tr>
+ <tr><td><b>초음파가 보는 것</b></td><td class="n">상대 로봇</td><td>±12° 감지각. 5 cm 미만은 5로 포화(밀착 중에도 보임) · 빔 밖·200 cm 초과는 200</td></tr>
+ <tr><td><b>컬러 센서가 보는 것</b></td><td class="n">검정 10 · 테두리 80 · 밖 25 %</td><td>흰 테두리 감지가 생존의 열쇠</td></tr>
+ <tr><td><b>밀어내기</b></td><td class="n">출력 대 출력</td><td>접촉 방향으로 미는 힘이 큰 쪽이 전진. 옆·뒤를 잡히면 쉽게 밀립니다</td></tr>
+ <tr><td><b>제자리 180° 회전</b></td><td class="n">17.6 cm</td><td>π × 11.2 ÷ 2 — 조향 100에서 cm 이동</td></tr>
+ <tr><td><b>반사광 임계값</b></td><td class="n">45 ~ 50 %</td><td>(검정 10 + 흰색 80) ÷ 2 = 45. 기본 예제는 반사 &gt; 50</td></tr>
+</tbody></table></div>`,
+en:`
+<h2>Sumo rules (as simulated)</h2>
+<div class="tablewrap" style="margin-bottom:18px"><table>
+ <thead><tr><th>Item</th><th>Rule</th></tr></thead><tbody>
+ <tr><td><b>Start</b></td><td>Both robots start at the center, <b>back to back</b>, facing away. When the <b>3-second countdown</b> ends, both programs start at once.</td></tr>
+ <tr><td><b>Opening</b></td><td>Robots first <b>drive to the edge</b> (white border), then turn around, find the opponent and push.</td></tr>
+ <tr><td><b>Win/Lose</b></td><td>The robot whose wheels cross the white border and <b>leave the ring first loses</b> — even if it drives out by itself.</td></tr>
+ <tr><td><b>Time</b></td><td>If there is no decision within the time limit, it is a <b>draw</b>.</td></tr>
+ <tr><td><b>Fairness</b></td><td>Both robots share the same hardware (motors B+F · color D · ultrasonic A), battery and physics. The only difference is the <b>program</b>.</td></tr>
+</tbody></table></div>
+
+<h2>Practice matches — Level 1 to 5</h2>
+<p class="lede" style="margin-bottom:18px">Ten opponents are arranged in pairs from <b>Level 1 (Rookie) to Level 5 (Champion)</b>. Pick a level above the ring and beat them in order. <b>⚡ Auto-battle ×10</b> plays 10 headless matches and reports your win rate.</p>
+
+<div class="callout" style="margin-bottom:18px"><b>Three habits of winning robots.</b>
+ ① <b>Survive at the border instantly</b> — miss the reflection check and you fall out by yourself.
+ ② <b>Scan slowly</b> — spin too fast and the ultrasonic sweeps past the opponent.
+ ③ <b>Push at full power</b> — pushing is a power-vs-power contest.</div>
+
+<h2>Save & share — good code goes to git</h2>
+<p class="lede"><b>Enter your name and country above the ring before exporting</b> — they are stored in the file so everyone knows whose code it is.</p>
+<ol class="steps" style="margin-bottom:18px">
+ <li><b>Measure</b>Pick an opponent and run <b>⚡ Auto-battle ×10</b> to get your win rate.</li>
+ <li><b>Export</b>Fill in name & country, then <b>↧ Export my code</b> — saved as <code>name.sumo.json</code>.</li>
+ <li><b>Commit</b>Put the file in the repo folder <code>codes/</code>: <code>git add codes/ && git commit && git push</code></li>
+ <li><b>Import</b>Load a friend's file with <b>↥ Import code</b> and fight it <b>as the opponent</b>.</li>
+</ol>
+
+<h2>Two robots, same body, different brains</h2>
+<p class="lede">🔧 <a href="https://drive.google.com/file/d/1hNueBQCRkNeAL3DK85-qIdXuH-d0Ql3q/view?usp=drive_link" target="_blank" rel="noopener">Assembly card (Google Drive)</a> — both robots follow this build.</p>
+<div class="tablewrap"><table>
+ <thead><tr><th>Item</th><th>Value</th><th>Notes</th></tr></thead><tbody>
+ <tr><td><b>Ports</b></td><td class="n">B·F / D / A</td><td>left·right motors / color sensor (down) / ultrasonic (front) — identical on both robots</td></tr>
+ <tr><td><b>Ultrasonic sees</b></td><td class="n">the opponent</td><td>±12° beam; below 5 cm it saturates at 5 (still visible while pushing) · outside the beam or beyond 200 cm reads 200</td></tr>
+ <tr><td><b>Color sensor sees</b></td><td class="n">black 10 · border 80 · outside 25 %</td><td>border detection is the key to survival</td></tr>
+ <tr><td><b>Pushing</b></td><td class="n">power vs power</td><td>whoever pushes harder along the contact advances; caught sideways you slide easily</td></tr>
+ <tr><td><b>180° spin</b></td><td class="n">17.6 cm</td><td>π × 11.2 ÷ 2 — cm move at steering 100</td></tr>
+ <tr><td><b>Reflection threshold</b></td><td class="n">45–50 %</td><td>(black 10 + white 80) ÷ 2 = 45; the example uses &gt; 50</td></tr>
+</tbody></table></div>`,
+ja:`
+<h2>相撲ルール(シミュレーター適用)</h2>
+<div class="tablewrap" style="margin-bottom:18px"><table>
+ <thead><tr><th>項目</th><th>内容</th></tr></thead><tbody>
+ <tr><td><b>開始</b></td><td>2台がリング中央で<b>背中合わせ</b>になり反対方向を向きます。<b>3秒カウントダウン</b>が終わった瞬間、両プログラムが同時に始まります。</td></tr>
+ <tr><td><b>展開</b></td><td>ロボットはまず<b>リングの端(白い縁)まで進み</b>、向きを変えて相手を探し押し出します。</td></tr>
+ <tr><td><b>勝敗</b></td><td>車輪が白い縁を越えて<b>先に場外へ出た方が負け</b>。自分で出ても負けです。</td></tr>
+ <tr><td><b>時間</b></td><td>制限時間内に決着しなければ<b>引き分け</b>。</td></tr>
+ <tr><td><b>公平性</b></td><td>2台は同じハードウェア(モーターB+F・カラーD・超音波A)・バッテリー・物理条件。違いは<b>プログラム</b>だけです。</td></tr>
+</tbody></table></div>
+
+<h2>模擬戦 — レベル1から5まで</h2>
+<p class="lede" style="margin-bottom:18px">相手ロボット10体が<b>レベル1(入門)〜レベル5(チャンピオン)</b>に2体ずつ。リング上でレベルを選び、順番に倒していきましょう。<b>⚡ 自動対戦×10</b>で画面なしの10試合を実行し勝率を測れます。</p>
+
+<div class="callout" style="margin-bottom:18px"><b>勝つロボットの3つの習慣。</b>
+ ①<b>縁で即座に生き残る</b> — 反射光の条件を忘れると自分から落ちます。
+ ②<b>探索はゆっくり回る</b> — 速すぎると超音波が相手を通り過ぎます。
+ ③<b>押すときは全力</b> — 押し合いは出力対出力の力比べです。</div>
+
+<h2>コードの保存と共有 — 勝率の良いコードをgitへ</h2>
+<p class="lede"><b>書き出す前にリング上の入力欄で名前と国を入力してください</b> — ファイルに保存され、誰のコードか分かります。</p>
+<ol class="steps" style="margin-bottom:18px">
+ <li><b>勝率を測る</b>相手を選び<b>⚡ 自動対戦×10</b>で勝率を測ります。</li>
+ <li><b>書き出す</b>名前・国を入力して<b>↧ コードを書き出す</b> — <code>名前.sumo.json</code>で保存。</li>
+ <li><b>gitへ</b>ファイルをリポジトリの<code>codes/</code>に入れてコミット: <code>git add codes/ && git commit && git push</code></li>
+ <li><b>読み込む</b>友だちのファイルは<b>↥ コードを読み込む</b>で<b>相手ロボットとして</b>対戦できます。</li>
+</ol>
+
+<h2>2台のロボット、同じ体、違う頭脳</h2>
+<p class="lede">🔧 <a href="https://drive.google.com/file/d/1hNueBQCRkNeAL3DK85-qIdXuH-d0Ql3q/view?usp=drive_link" target="_blank" rel="noopener">組み立てカード(Google Drive)</a> — 両ロボットともこのカードの組み立てが基準です。</p>
+<div class="tablewrap"><table>
+ <thead><tr><th>項目</th><th>値</th><th>備考</th></tr></thead><tbody>
+ <tr><td><b>ポート</b></td><td class="n">B·F / D / A</td><td>左右モーター / カラーセンサー(下向き) / 超音波(前方) — 両ロボット共通</td></tr>
+ <tr><td><b>超音波が見るもの</b></td><td class="n">相手ロボット</td><td>±12°。5cm未満は5に飽和(密着中も見える)・ビーム外や200cm超は200</td></tr>
+ <tr><td><b>カラーセンサー</b></td><td class="n">黒10・縁80・外25%</td><td>縁の検出が生存のカギ</td></tr>
+ <tr><td><b>押し合い</b></td><td class="n">出力対出力</td><td>接触方向に強く押す方が前進。横・後ろを取られると簡単に押されます</td></tr>
+ <tr><td><b>その場180°回転</b></td><td class="n">17.6cm</td><td>π × 11.2 ÷ 2 — ステアリング100でのcm移動</td></tr>
+ <tr><td><b>反射光しきい値</b></td><td class="n">45〜50%</td><td>(黒10+白80)÷2=45。例は&gt;50を使用</td></tr>
+</tbody></table></div>`,
+es:`
+<h2>Reglas de sumo (como se simulan)</h2>
+<div class="tablewrap" style="margin-bottom:18px"><table>
+ <thead><tr><th>Punto</th><th>Regla</th></tr></thead><tbody>
+ <tr><td><b>Inicio</b></td><td>Ambos robots comienzan en el centro, <b>espalda con espalda</b>, mirando hacia afuera. Al terminar la <b>cuenta atrás de 3 segundos</b> los dos programas arrancan a la vez.</td></tr>
+ <tr><td><b>Apertura</b></td><td>Primero cada robot <b>avanza hasta el borde</b> (línea blanca), luego gira, busca al rival y empuja.</td></tr>
+ <tr><td><b>Victoria</b></td><td>El robot cuyas ruedas cruzan la línea blanca y <b>sale primero del ring pierde</b>, aunque salga solo.</td></tr>
+ <tr><td><b>Tiempo</b></td><td>Sin decisión dentro del límite de tiempo: <b>empate</b>.</td></tr>
+ <tr><td><b>Equidad</b></td><td>Ambos robots comparten hardware (motores B+F · color D · ultrasonido A), batería y física. La única diferencia es el <b>programa</b>.</td></tr>
+</tbody></table></div>
+
+<h2>Combates de práctica — Nivel 1 a 5</h2>
+<p class="lede" style="margin-bottom:18px">Hay diez rivales en parejas del <b>Nivel 1 (Novato) al Nivel 5 (Campeón)</b>. Elige el nivel sobre el ring y véncelos en orden. <b>⚡ Auto-combate ×10</b> juega 10 combates sin pantalla y mide tu tasa de victorias.</p>
+
+<div class="callout" style="margin-bottom:18px"><b>Tres hábitos de los robots ganadores.</b>
+ ① <b>Sobrevive al borde al instante</b> — sin la condición de reflexión te caes solo.
+ ② <b>Escanea despacio</b> — girando rápido el ultrasonido pasa de largo.
+ ③ <b>Empuja a toda potencia</b> — empujar es potencia contra potencia.</div>
+
+<h2>Guardar y compartir — el buen código va a git</h2>
+<p class="lede"><b>Escribe tu nombre y país sobre el ring antes de exportar</b> — se guardan en el archivo para saber de quién es el código.</p>
+<ol class="steps" style="margin-bottom:18px">
+ <li><b>Medir</b>Elige rival y usa <b>⚡ Auto-combate ×10</b> para conocer tu tasa de victorias.</li>
+ <li><b>Exportar</b>Rellena nombre y país y pulsa <b>↧ Exportar mi código</b> — se guarda como <code>nombre.sumo.json</code>.</li>
+ <li><b>Subir a git</b>Pon el archivo en la carpeta <code>codes/</code> del repositorio: <code>git add codes/ && git commit && git push</code></li>
+ <li><b>Importar</b>Carga el archivo de un amigo con <b>↥ Importar código</b> y lucha contra él <b>como rival</b>.</li>
+</ol>
+
+<h2>Dos robots, mismo cuerpo, distinto cerebro</h2>
+<p class="lede">🔧 <a href="https://drive.google.com/file/d/1hNueBQCRkNeAL3DK85-qIdXuH-d0Ql3q/view?usp=drive_link" target="_blank" rel="noopener">Guía de montaje (Google Drive)</a> — ambos robots siguen este montaje.</p>
+<div class="tablewrap"><table>
+ <thead><tr><th>Punto</th><th>Valor</th><th>Notas</th></tr></thead><tbody>
+ <tr><td><b>Puertos</b></td><td class="n">B·F / D / A</td><td>motores izq./der. / sensor de color (abajo) / ultrasonido (frontal) — igual en ambos</td></tr>
+ <tr><td><b>El ultrasonido ve</b></td><td class="n">al rival</td><td>haz de ±12°; bajo 5 cm satura en 5 (visible al empujar) · fuera del haz o sobre 200 cm devuelve 200</td></tr>
+ <tr><td><b>El sensor de color ve</b></td><td class="n">negro 10 · línea 80 · fuera 25 %</td><td>detectar la línea es la clave para sobrevivir</td></tr>
+ <tr><td><b>Empuje</b></td><td class="n">potencia vs potencia</td><td>avanza quien empuja más fuerte en el contacto; de lado te deslizas fácil</td></tr>
+ <tr><td><b>Giro de 180°</b></td><td class="n">17,6 cm</td><td>π × 11,2 ÷ 2 — movimiento en cm con dirección 100</td></tr>
+ <tr><td><b>Umbral de reflexión</b></td><td class="n">45–50 %</td><td>(negro 10 + blanco 80) ÷ 2 = 45; el ejemplo usa &gt; 50</td></tr>
+</tbody></table></div>`};
+
+/* 언어 적용 — data-i18n 요소·문서 본문·선택지들을 다시 그린다 */
+function applyLang(){
+  document.documentElement.lang=LANG;
+  document.querySelectorAll('[data-i18n]').forEach(el=>{el.innerHTML=t9(el.dataset.i18n);});
+  const db=document.getElementById('docsBody'); if(db) db.innerHTML=DOCS[LANG]||DOCS.ko;
+  $('btnPlay').textContent='▶ '+t9('run'); $('btnStop').textContent='■ '+t9('stop');
+  $('myName').placeholder=t9('phName');
+  $('btnBattle10').title=t9('b10Title');
+  $('btnExport').title=t9('expTitle'); $('btnImport').title=t9('impTitle');
+  const lv=$('lvlSel'); lv.innerHTML='';
+  for(let i=1;i<=5;i++){const op=document.createElement('option'); op.value=i; op.textContent=t9('lv'+i); lv.appendChild(op);}
+  lv.value=LVL;
+  const mf=$('myFlag'), cur=mf.value||LB.myCountry||'대한민국'; mf.innerHTML='';
+  FLAGS.forEach(([f,c])=>{const op=document.createElement('option'); op.value=c; op.textContent=`${f} ${countryName(c)}`; mf.appendChild(op);});
+  mf.value=cur;
+  const le=$('log'); if(le.querySelector('.empty')) le.innerHTML=`<div class="empty">${t9('logEmpty')}</div>`;
+  initOppSel(); renderCats(); renderPalette(); renderScript(); renderLB();
+  if(M){ paintHub(); syncButtons(); hud(); }
+}
+
+
+function walk(list,fn){for(const n of list){fn(n); if(n.body)walk(n.body,fn); if(n.body2)walk(n.body2,fn);}}
+function findList(id,list=SCRIPT){
+  for(let i=0;i<list.length;i++){
+    if(list[i].id===id) return {list,i};
+    for(const key of ['body','body2']) if(list[i][key]){const r=findList(id,list[i][key]); if(r) return r;}
+  }
+  return null;
+}
+function findNode(id){const r=findList(id); return r?r.list[r.i]:null;}
+function contains(n,id){
+  if(n.id===id) return true;
+  for(const key of ['body','body2']) if(n[key]) for(const c of n[key]) if(contains(c,id)) return true;
+  return false;
+}
+/* 값·조건 슬롯에 끼워진 블록 탐색 */
+function eachSub(n,fn){
+  for(const k in n.in){const v=n.in[k]; if(v&&!('lit' in v)){fn(v,n,'in',k); eachSub(v,fn);}}
+  for(const k in n.b){const v=n.b[k]; if(v){fn(v,n,'b',k); eachSub(v,fn);}}
+}
+function findSub(id){
+  let f=null;
+  walk(SCRIPT,n=>eachSub(n,(sub,owner,kind,key)=>{if(sub.id===id) f={sub,owner,kind,key};}));
+  return f;
+}
+function subById(id){
+  let f=null;
+  walk(SCRIPT,n=>eachSub(n,sub=>{if(sub.id===id) f=sub;}));
+  return f;
+}
+function ownerById(id){ return findNode(id)||subById(id); }
+const snapshot=l=>JSON.parse(JSON.stringify(l));
+const fingerprint=l=>JSON.stringify(l);
+
+/* ══════════ 렌더링 ══════════ */
+const scriptEl=$('script'), paletteEl=$('palette'), catsEl=$('cats');
+let blockEls={};
+
+/* ── 눌러서 조립 ──────────────────────────────
+   터치 기기에서는 HTML5 드래그가 아예 동작하지 않는다.
+   캔버스에서 자리를 누르고 팔레트 블록을 누르면 그 자리에 들어간다. */
+let SEL=null;   // {kind:'block',id} | {kind:'body',id,key} | {kind:'slot',owner,key,slotKind}
+function selEl(){
+  if(!SEL) return null;
+  if(SEL.kind==='block') return blockEls[SEL.id]||null;
+  if(SEL.kind==='body')  return scriptEl.querySelector(`[data-body="${SEL.id}::${SEL.key}"]`);
+  return scriptEl.querySelector(`[data-owner="${SEL.owner}"][data-key="${SEL.key}"]`);
+}
+function paintSel(){
+  scriptEl.querySelectorAll('.sel').forEach(e=>e.classList.remove('sel'));
+  const el=selEl(); if(el) el.classList.add('sel'); else SEL=null;
+  const h=$('canvasHint');
+  if(h&&!h.classList.contains('warn')){
+    h.textContent = !SEL ? t9('selNone')
+      : SEL.kind==='body' ? t9('selBody')
+      : SEL.kind==='slot' ? t9('selSlot')
+      : t9('selBlock');
+  }
+}
+function select(s){SEL=s; paintSel();}
+function firstEmptySlot(n){
+  for(const k in n.b) if(!n.b[k]) return {owner:n.id,key:k,slotKind:'b'};
+  for(const k in n.in){const v=n.in[k]; if(v&&('lit' in v)) return {owner:n.id,key:k,slotKind:'in'};}
+  return null;
+}
+function addFromPalette(type){
+  const d=DEFS[type];
+  if(d.hat) return;
+  const node=mk(type);
+  if(d.rep){                                   // 둥근·각진 블록은 빈 칸에만 들어간다
+    if(!SEL||SEL.kind!=='slot'){
+      hintMsg(t9('errPickSlot'),true); return;
+    }
+    const want = SEL.slotKind==='b' ? 'bool' : 'round';
+    if(want==='bool' && d.rep!=='bool'){
+      hintMsg(t9('errRound'),true); return;
+    }
+    if(want==='round' && d.rep==='bool'){
+      hintMsg(t9('errBoolShort'),true); return;
+    }
+    const owner=ownerById(SEL.owner); if(!owner) return;
+    if(SEL.slotKind==='b') owner.b[SEL.key]=node; else owner.in[SEL.key]=node;
+    renderScript();
+    const nxt=firstEmptySlot(node); select(nxt?{kind:'slot',...nxt}:null);
+  }else{
+    let target=SCRIPT, at=SCRIPT.length;
+    if(SEL&&SEL.kind==='body'){const o=findNode(SEL.id); if(o&&o[SEL.key]){target=o[SEL.key];at=target.length;}}
+    else if(SEL&&SEL.kind==='block'){const r=findList(SEL.id); if(r){target=r.list;at=r.i+1;}}
+    target.splice(at,0,node);
+    renderScript();
+    const nxt=firstEmptySlot(node);
+    select(nxt&&d.b?{kind:'slot',...nxt}:{kind:'block',id:node.id});
+  }
+  markDirty(); reset();
+}
+function moveSel(dir){
+  if(!SEL||SEL.kind!=='block') return;
+  const r=findList(SEL.id); if(!r) return;
+  const j=r.i+dir; if(j<0||j>=r.list.length) return;
+  const [n]=r.list.splice(r.i,1); r.list.splice(j,0,n);
+  renderScript(); select({kind:'block',id:n.id}); markDirty(); reset();
+}
+function deleteNode(id){
+  const r=findList(id); if(!r) return;
+  r.list.splice(r.i,1);
+  if(SEL&&SEL.id===id) SEL=null;
+  renderScript(); paintSel(); markDirty(); reset();
+}
+/* 앱은 조향을 "오른쪽: 30" 한 덩어리로 보여준다 — 방향은 라벨, 숫자는 입력칸.
+   음수를 입력하면 방향이 뒤집히고 입력칸은 다시 절댓값을 보여준다. */
+const steerWord=v=>{const w=STEER_W[LANG]||STEER_W.ko; return v>0?w[0]:(v<0?w[1]:w[2]);};
+
+function partEl(part,node,edit){
+  if(part.k==='t'){const s=document.createElement('span'); s.textContent=part.s; return s;}
+  if(part.k==='fd'){
+    const s=document.createElement('select'); s.className='fld';
+    (part.n==='VAR'?VARS:part.o).forEach(o=>{const op=document.createElement('option'); op.value=o; op.textContent=optLabel(o); s.appendChild(op);});
+    s.value=node.f[part.n]; s.disabled=!edit;
+    s.addEventListener('change',()=>{node.f[part.n]=s.value; syncThresholds(); markDirty();});
+    s.addEventListener('mousedown',e=>e.stopPropagation());
+    return s;
+  }
+  const wire=(el,kind)=>{ if(!edit) return el;
+    el.addEventListener('click',ev=>{ev.stopPropagation();
+      select({kind:'slot',owner:node.id,key:part.n,slotKind:kind});});
+    return el; };
+  if(part.k==='bl'){
+    const sl=document.createElement('span'); sl.className='bslot';
+    sl.dataset.owner=node.id; sl.dataset.key=part.n; sl.dataset.kind='b';
+    const c=node.b[part.n];
+    if(c){ sl.className='slotwrap'; sl.appendChild(repEl(c,edit)); }
+    return wire(sl,'b');
+  }
+  /* 값 슬롯 — 숫자(흰 알약) 또는 끼워진 리포터 */
+  const sl=wire(document.createElement('span'),'in');
+  sl.dataset.owner=node.id; sl.dataset.key=part.n; sl.dataset.kind='in';
+  const v=node.in[part.n];
+  if(v && !('lit' in v)){ sl.className='vslot'; sl.appendChild(repEl(v,edit)); return sl; }
+  if(part.k==='st'){
+    sl.className='vslot steer';
+    const cur=v?+v.lit:0;
+    const lab=document.createElement('span'); lab.textContent=steerWord(cur);
+    const i=document.createElement('input'); i.type='number'; i.className='num'; i.step=10;
+    i.min=-100; i.max=100; i.value=Math.abs(cur); i.disabled=!edit;
+    i.addEventListener('change',()=>{
+      let x=parseFloat(i.value); if(!isFinite(x))return;
+      x=Math.max(-100,Math.min(100,x));
+      const signed = x<0 ? -Math.abs(cur||1)*0+x : (cur<0 ? -x : x);   // 음수 입력 = 방향 반전
+      node.in[part.n]={lit:signed};
+      lab.textContent=steerWord(signed); i.value=Math.abs(signed); markDirty();
+    });
+    i.addEventListener('mousedown',e=>e.stopPropagation());
+    sl.appendChild(lab); sl.appendChild(i); return sl;
+  }
+  sl.className='vslot lit';
+  const i=document.createElement('input'); i.type='number'; i.className='num';
+  i.step='any'; i.value=v?v.lit:0; i.disabled=!edit;
+  i.addEventListener('change',()=>{const x=parseFloat(i.value);
+    if(isFinite(x)) node.in[part.n]={lit:x}; syncThresholds(); markDirty();});
+  i.addEventListener('mousedown',e=>e.stopPropagation());
+  sl.appendChild(i); return sl;
+}
+function repEl(node,edit){
+  const d=DEFS[node.type], e=document.createElement('span');
+  e.className='rep c-'+d.cat+(d.rep==='bool'?' bool':'');
+  e.dataset.id=node.id;
+  if(edit){e.draggable=true; e.addEventListener('dragstart',ev=>{ev.stopPropagation();
+    drag={kind:'moveSub',id:node.id}; ev.dataTransfer.setData('text/plain',node.id); ev.dataTransfer.effectAllowed='move';});}
+  partsOf(d,node.type).forEach(p=>e.appendChild(partEl(p,node,edit)));
+  blockEls[node.id]=e; return e;
+}
+function blockEl(node,edit){
+  const d=DEFS[node.type], b=document.createElement('div');
+  b.className='blk c-'+d.cat+(d.hat?' hat':''); b.dataset.id=node.id;
+  const ic=document.createElement('span'); ic.className='ico'; ic.textContent=d.ico||'';
+  b.appendChild(ic);
+  partsOf(d,node.type).forEach(p=>b.appendChild(partEl(p,node,edit)));
+  if(edit){
+    b.draggable=true;
+    b.addEventListener('dragstart',ev=>{ev.stopPropagation(); drag={kind:'move',id:node.id};
+      ev.dataTransfer.setData('text/plain',node.id); ev.dataTransfer.effectAllowed='move';});
+    b.addEventListener('click',ev=>{ev.stopPropagation(); select({kind:'block',id:node.id});});
+    // 드래그 없이도 순서를 바꾸고 지울 수 있어야 한다 (터치 기기)
+    const tools=document.createElement('span'); tools.className='tools';
+    [['↑','위로',()=>moveSel(-1)],['↓','아래로',()=>moveSel(1)],['×','삭제',()=>deleteNode(node.id)]]
+      .forEach(([t,title,fn])=>{
+        const x=document.createElement('button'); x.textContent=t; x.title=title;
+        x.addEventListener('click',ev=>{ev.stopPropagation(); select({kind:'block',id:node.id}); fn();});
+        x.addEventListener('mousedown',ev=>ev.stopPropagation());
+        tools.appendChild(x);
+      });
+    b.appendChild(tools);
+  }
+  blockEls[node.id]=b; return b;
+}
+function nodeEl(node,edit){
+  if(edit===undefined) edit=true;
+  const d=DEFS[node.type], wrap=document.createElement('div');
+  wrap.className='node'; if(edit) wrap.dataset.id=node.id;
+  const blk=blockEl(node,edit);
+  if(d.body){
+    const cw=document.createElement('div'); cw.className='cwrap'; cw.appendChild(blk);
+    const mkBody=(list,key)=>{const bd=document.createElement('div');
+      bd.className='cbody'+(edit?' droplist':''); bd.dataset.body=node.id+'::'+key;
+      list.forEach(c=>bd.appendChild(nodeEl(c,edit)));
+      if(edit) bd.addEventListener('click',ev=>{ if(ev.target!==bd) return;
+        ev.stopPropagation(); select({kind:'body',id:node.id,key}); });
+      return bd;};
+    const b1=mkBody(node.body,'body'); cw.appendChild(b1);
+    let mid=null,b2=null;
+    if(d.body2){
+      mid=document.createElement('div'); mid.className='cmid'; mid.textContent=midLabel(d);
+      cw.appendChild(mid);
+      b2=mkBody(node.body2,'body2'); cw.appendChild(b2);
+    }
+    const foot=document.createElement('div'); foot.className='cfoot'; cw.appendChild(foot);
+    wrap.appendChild(cw);
+    requestAnimationFrame(()=>{const col=getComputedStyle(blk).backgroundColor;
+      b1.style.borderLeftColor=col; foot.style.background=col;
+      if(mid) mid.style.background=col;
+      if(b2) b2.style.borderLeftColor=col;});
+  } else wrap.appendChild(blk);
+  return wrap;
+}
+function renderScript(){
+  blockEls={}; scriptEl.innerHTML='';
+  scriptEl.appendChild(blockEl(mk('whenProgramStarts'),false));
+  const root=document.createElement('div'); root.className='droplist'; root.dataset.body='root';
+  SCRIPT.forEach(n=>root.appendChild(nodeEl(n)));
+  scriptEl.appendChild(root);
+  if(!SCRIPT.length){const h=document.createElement('div'); h.className='emptyhint';
+    h.textContent=t9('emptyHint'); root.appendChild(h);}
+  syncThresholds(); paintSel();
+}
+/* 팔레트 — 앱처럼 카테고리 제목이 들어간 하나의 연속 스크롤 */
+function renderPalette(){
+  paletteEl.innerHTML='';
+  CATS.forEach(c=>{
+    const h=document.createElement('div'); h.className='flyhead'; h.textContent=catName(c);
+    h.id='fly-'+c.id; paletteEl.appendChild(h);
+    if(c.id==='variables'){
+      // prompt()는 iframe·일부 환경에서 막히므로 팔레트 안에 입력칸을 편다
+      const mb=document.createElement('button'); mb.className='mkvar'; mb.textContent=t9('varMake');
+      const box=document.createElement('span');
+      box.style.cssText='display:none;gap:4px;align-items:center;margin:2px 0 4px';
+      const inp=document.createElement('input'); inp.className='namebox'; inp.style.width='108px';
+      inp.maxLength=20;
+      const ok=document.createElement('button'); ok.className='tbtn'; ok.textContent='✓';
+      const no=document.createElement('button'); no.className='tbtn'; no.textContent='✕';
+      box.appendChild(inp); box.appendChild(ok); box.appendChild(no);
+      const openEd=()=>{mb.style.display='none'; box.style.display='inline-flex';
+        inp.value=''; inp.placeholder=t9('varPrompt'); inp.focus();};
+      const closeEd=()=>{box.style.display='none'; mb.style.display='';};
+      const commit=()=>{const nm=inp.value.trim();
+        if(!nm){closeEd(); return;}
+        if(VARS.includes(nm)){hintMsg(t9('varDup'),true); return;}
+        VARS.push(nm);
+        renderPalette(); renderScript(); markDirty();
+        hintMsg(tf('varMade',{n:nm}),false);};
+      mb.addEventListener('click',openEd);
+      ok.addEventListener('click',commit);
+      no.addEventListener('click',closeEd);
+      inp.addEventListener('keydown',e=>{if(e.key==='Enter')commit(); if(e.key==='Escape')closeEd();});
+      paletteEl.appendChild(mb); paletteEl.appendChild(box);
+    }
+    c.items.forEach(t=>{
+      const d=DEFS[t], tmp=mk(t);
+      // C블록은 앱처럼 팔레트에서도 몸통과 '아니면' 구분바까지 그린다
+      const el=d.rep?repEl(tmp,false):(d.body?nodeEl(tmp,false):blockEl(tmp,false));
+      el.removeAttribute('data-id');
+      el.querySelectorAll('.tools').forEach(x=>x.remove());
+      if(d.hat){ el.classList.add('off'); el.title=t9('palHat'); }
+      else{
+        el.draggable=true;
+        el.title=t9('palAdd');
+        el.addEventListener('dragstart',ev=>{drag={kind:'new',type:t};
+          ev.dataTransfer.setData('text/plain',t); ev.dataTransfer.effectAllowed='copy';});
+        el.addEventListener('click',()=>addFromPalette(t));
+      }
+      if(d.rep){const w=document.createElement('div'); w.appendChild(el); paletteEl.appendChild(w);}
+      else paletteEl.appendChild(el);
+    });
+  });
+  const n=document.createElement('div'); n.className='flynote';
+  n.textContent=t9('flynote');
+  paletteEl.appendChild(n);
+}
+function renderCats(){
+  catsEl.innerHTML='';
+  CATS.forEach((c,idx)=>{
+    const b=document.createElement('button'); b.setAttribute('aria-pressed',String(idx===0));
+    const i=document.createElement('i'); i.style.background='var(--c-'+c.id+')'; b.appendChild(i);
+    const s=document.createElement('span'); s.textContent=catName(c); b.appendChild(s);
+    b.addEventListener('click',()=>{
+      catsEl.querySelectorAll('button').forEach(o=>o.setAttribute('aria-pressed','false'));
+      b.setAttribute('aria-pressed','true');
+      const h=$('fly-'+c.id); if(h) paletteEl.scrollTop=h.offsetTop-paletteEl.offsetTop-6;
+    });
+    catsEl.appendChild(b);
+  });
+}
+
+/* ══════════ 드래그 앤 드롭 ══════════ */
+let drag=null, caret=null;
+function clearCaret(){if(caret&&caret.parentNode)caret.remove(); caret=null;
+  document.querySelectorAll('.over,.bad').forEach(s=>s.classList.remove('over','bad'));}
+const dragKind=()=>{ if(!drag) return null;
+  const t = drag.kind==='new' ? DEFS[drag.type].rep : (subById(drag.id)?DEFS[subById(drag.id).type].rep:null);
+  return t||null; };   // 'round' | 'bool' | null(스택)
+/* 빈 조건 슬롯은 48×19px뿐이라 정확히 맞히기 어렵다.
+   슬롯을 살짝 빗나가면 가리킨 블록의 첫 빈 슬롯으로 받아준다. */
+function slotUnder(el,rk){
+  const sel = rk==='bool' ? '.bslot' : '.vslot';
+  const direct = el.closest(sel);
+  if(direct && direct.dataset.owner) return direct;
+  const host = el.closest('.blk,.rep');
+  if(!host) return null;
+  return host.querySelector(rk==='bool' ? '.bslot[data-owner]' : '.vslot.lit[data-owner]');
+}
+/* 반대 종류의 슬롯을 겨냥한 경우 — 둥근 리포터를 조건 자리에, 또는 그 반대 */
+function wrongSlotUnder(el,rk){
+  const other = rk==='bool' ? '.vslot' : '.bslot';
+  const direct = el.closest(other);
+  if(direct && direct.dataset.owner) return direct;
+  const host = el.closest('.blk,.rep');
+  return host ? host.querySelector(other+'[data-owner]') : null;
+}
+let hintTimer=null;
+function hintMsg(text,warn){
+  const h=$('canvasHint'); if(!h) return;
+  h.textContent=text; h.classList.toggle('warn',!!warn);
+  clearTimeout(hintTimer);
+  hintTimer=setTimeout(()=>{h.classList.remove('warn'); paintSel();},7000);
+}
+const canvasEl=document.querySelector('.canvas');
+// 빈 바탕을 누르면 선택 해제
+canvasEl.addEventListener('click',ev=>{
+  if(ev.target===canvasEl||ev.target.classList.contains('droplist')||ev.target.classList.contains('stackroot'))
+    select(null);
+});
+canvasEl.addEventListener('dragover',ev=>{
+  if(!drag) return;
+  ev.preventDefault(); ev.dataTransfer.dropEffect=drag.kind==='new'?'copy':'move';
+  clearCaret();
+  const el=document.elementFromPoint(ev.clientX,ev.clientY); if(!el) return;
+  const rk=dragKind();
+  if(rk){
+    const s=slotUnder(el,rk);
+    if(s){s.classList.add('over');}
+    else{const bad=wrongSlotUnder(el,rk); if(bad)bad.classList.add('bad');}
+    return;
+  }
+  const list=el.closest('.droplist'); if(!list) return;
+  const kids=[...list.children].filter(c=>c.classList.contains('node'));
+  let idx=kids.length;
+  for(let i=0;i<kids.length;i++){const r=kids[i].getBoundingClientRect();
+    if(ev.clientY<r.top+Math.min(r.height,34)/2){idx=i;break;}}
+  caret=document.createElement('div'); caret.className='caret';
+  list.insertBefore(caret,kids[idx]||null);
+  caret.dataset.list=list.dataset.body; caret.dataset.idx=idx;
+});
+canvasEl.addEventListener('dragleave',ev=>{if(!canvasEl.contains(ev.relatedTarget))clearCaret();});
+canvasEl.addEventListener('drop',ev=>{
+  if(!drag) return; ev.preventDefault();
+  const rk=dragKind();
+  if(rk){
+    const el=document.elementFromPoint(ev.clientX,ev.clientY);
+    const slot=el&&slotUnder(el,rk);
+    if(slot&&slot.dataset.owner){
+      const owner=ownerById(slot.dataset.owner), key=slot.dataset.key, kind=slot.dataset.kind;
+      let node;
+      if(drag.kind==='new') node=mk(drag.type);
+      else{ const o=findSub(drag.id); if(!o){drag=null;clearCaret();return;}
+            node=o.sub; if(contains2(node,slot.dataset.owner)){drag=null;clearCaret();return;}
+            if(o.kind==='in') o.owner.in[o.key]={lit:0}; else o.owner.b[o.key]=null; }
+      if(owner){ if(kind==='b') owner.b[key]=node; else owner.in[key]=node; }
+    }
+    else if(wrongSlotUnder(el,rk)){
+      // 앱과 같은 규칙이라 막지만, 왜 안 되는지는 알려준다
+      hintMsg(rk==='round' ? t9('errRound') : t9('errBoolLong'), true);
+    }
+    drag=null; clearCaret(); renderScript(); markDirty(); reset(); return;
+  }
+  if(!caret){drag=null;return;}
+  const listId=caret.dataset.list, idx=+caret.dataset.idx;
+  let target;
+  if(listId==='root') target=SCRIPT;
+  else{const [oid,key]=listId.split('::'); const o=findNode(oid); target=o?o[key]:null;}
+  if(!target){drag=null;clearCaret();return;}
+  let node;
+  if(drag.kind==='new') node=mk(drag.type);
+  else{
+    const r=findList(drag.id); if(!r){drag=null;clearCaret();return;}
+    node=r.list[r.i];
+    if((node.body||node.body2)&&contains(node,(listId.split('::'))[0])){drag=null;clearCaret();renderScript();return;}
+    r.list.splice(r.i,1);
+  }
+  target.splice(Math.min(idx,target.length),0,node);
+  drag=null; clearCaret(); renderScript(); markDirty(); reset();
+});
+document.addEventListener('dragend',()=>{drag=null;clearCaret();});
+paletteEl.addEventListener('dragover',ev=>{if(drag&&drag.kind!=='new'){ev.preventDefault();ev.dataTransfer.dropEffect='move';}});
+paletteEl.addEventListener('drop',ev=>{
+  if(!drag||drag.kind==='new') return; ev.preventDefault();
+  const o=findSub(drag.id);
+  if(o){ if(o.kind==='in') o.owner.in[o.key]={lit:0}; else o.owner.b[o.key]=null; }
+  else{ const r=findList(drag.id); if(r) r.list.splice(r.i,1); }
+  drag=null; clearCaret(); renderScript(); markDirty(); reset();
+});
+function contains2(n,id){
+  if(n.id===id) return true;
+  let hit=false; eachSub(n,s=>{if(s.id===id)hit=true;}); return hit;
+}
+
+const UI={thresh:45,seeDist:80};
+function syncThresholds(){
+  UI.thresh=45; UI.seeDist=80; let gr=false,gd=false;
+  walk(SCRIPT,n=>eachSub(n,s=>{
+    if(s.type==='isReflectivity'&&!gr){UI.thresh=num0(s.in.VALUE);gr=true;}
+    if(s.type==='isDistance'&&!gd){UI.seeDist=num0(s.in.VALUE);gd=true;}
+  }));
+}
+const num0=v=>v&&('lit' in v)?(+v.lit||0):45;
+
+/* ══════════ 경기 상태 — 두 로봇이 한 경기장에 ══════════ */
+let M=null, S=null, RUNSRC=null;   // M=경기 전체, S=지금 계산 중인 로봇 (센서·VM·물리가 참조)
+const FIGHT={mode:'vs'};           // 'solo' 혼자 연습 | 'vs' 상대 불러오기
+let OPP_SEL='op10'; let LVL=1;
+function oppProgram(){
+  if(OPP_SEL==='custom'&&CUSTOM_OPP) return snapshot(CUSTOM_OPP.prog);
+  const o=OPPONENTS.find(o=>o.id===OPP_SEL)||OPPONENTS[0];
+  return o.make();
+}
+function oppMeta(){
+  if(OPP_SEL==='custom'&&CUSTOM_OPP) return CUSTOM_OPP;
+  return OPPONENTS.find(o=>o.id===OPP_SEL)||OPPONENTS[0];
+}
+function newRobot(side){
+  const b=(Math.random()*2-1)*slipNow()/200;
+  return {side, x:0, y:side==='me'?-9.3:9.3, ph:side==='me'?-Math.PI/2:Math.PI/2,
+    vL:0,vR:0,tL:0,tR:0,trL:0,trR:0,biasL:1+b,biasR:1-b,
+    speed:50,mspeed:{},pair:[PORT.left,PORT.right],rotCm:17.5,
+    vm:null,state:'대기',reflection:10,distance:200,tm:0,yaw0:0,
+    trail:[],out:false,foe:null};
+}
+function newMatch(mode,progA,progB){
+  const A=newRobot('me'), B=mode==='vs'?newRobot('op'):null;
+  if(B){A.foe=B; B.foe=A;}
+  A.yaw0=A.ph; if(B) B.yaw0=B.ph;
+  A.vm=newVM(progA); if(B) B.vm=newVM(progB);
+  const m={mode,t:0,count:mode==='vs'?COUNTDOWN:0,phase:mode==='vs'?'count':'fight',
+           over:null,winner:null,running:false,headless:false,recA:null,recB:null,A,B};
+  for(const r of [A,B]) if(r){S=r; r.reflection=readReflection(); r.distance=readDistance();}
+  S=m.A; return m;
+}
+function reset(){
+  readTune();
+  M=newMatch(FIGHT.mode, RUNSRC||SCRIPT, FIGHT.mode==='vs'?oppProgram():null);
+  if(FIGHT.mode==='vs'){M.recA='me'; M.recB=oppMeta().id;}
+  S=M.A;
+  HUB.display=null; $('verdict').hidden=true; $('count').hidden=true;
+  draw(); hud(); paintHub();
+}
+function readTune(){
+  const g=(id,k)=>{const v=parseFloat($(id).value); if(isFinite(v))W[k]=v;};
+  g('p_dia','dia');g('p_border','border');g('p_wheel','wheel');
+  g('p_track','track');g('p_vmax','vmax');g('p_slip','slip');g('p_beam','beam');g('p_noise','noise');
+  const m=parseFloat($('p_match').value); if(isFinite(m)&&m>0) MATCH=m;
+}
+document.querySelectorAll('.tune input').forEach(i=>i.addEventListener('change',()=>{RUNSRC=null;reset();}));
+
+/* ══════════ 센서 — S(지금 로봇) 기준 ══════════ */
+const fwd=()=>[Math.cos(S.ph),Math.sin(S.ph)];
+const rgt=()=>[Math.sin(S.ph),-Math.cos(S.ph)];
+const at=(d,l=0)=>{const f=fwd(),r=rgt();return[S.x+f[0]*d+r[0]*l,S.y+f[1]*d+r[1]*l];};
+const rad=p=>Math.hypot(p[0],p[1]);
+function readReflection(){
+  const r=rad(at(G.senA));
+  const base=r<R_MAT()?10:(r<=R_OUT()?80:25);
+  return Math.max(0,Math.min(100,base+(Math.random()*2-1)*W.noise));
+}
+/* 초음파가 보는 것은 오직 상대 로봇 — 혼자 연습 모드에서는 항상 200 */
+function readDistance(){
+  const foe=S.foe; if(!foe) return 200;
+  const p=at(G.senB),f=fwd();
+  const dx=foe.x-p[0],dy=foe.y-p[1],L=Math.hypot(dx,dy); if(L<1e-6) return 200;
+  const ang=Math.abs(Math.atan2(dx*f[1]-dy*f[0],dx*f[0]+dy*f[1]))*180/Math.PI;
+  const halfW=Math.atan2(RBOT,Math.max(1,L))*180/Math.PI;   // 상대는 점이 아니라 몸통이다
+  if(ang>W.beam+halfW*0.7) return 200;
+  const d=L-RBOT;
+  if(d>200) return 200;
+  return Math.max(5,d+(Math.random()*2-1)*0.5);   // 5cm 미만은 5로 포화 — 밀착 중에도 상대가 보인다
+}
+const distIn=u=>u==='인치'?S.distance/2.54:(u==='%'?S.distance/2:S.distance);
+
+/* ══════════ 가상 머신 ══════════ */
+function newVM(list){return{stack:[{list,idx:0,kind:'root'}],blocked:null,active:null,
+  vars:Object.fromEntries(VARS.map(v=>[v,0])),ended:false,loops:0};}
+/* 값 평가 — 숫자 리터럴이거나 리포터 블록 */
+function val(v){
+  if(v==null) return 0;
+  if('lit' in v) return +v.lit||0;
+  const n=v;
+  switch(n.type){
+    case 'timer': return S.tm;
+    case 'reflectivity': return n.f.PORT===PORT.color?S.reflection:0;
+    case 'distance': return n.f.PORT===PORT.ultra?distIn(n.f.UNIT):200;
+    case 'absolutePosition':{const w=wheelOf(n.f.PORT);
+      return w?((w==='L'?S.trL:S.trR)/S.rotCm*360)%360:0;}
+    case 'motorSpeed':{const w=wheelOf(n.f.PORT);
+      return w?Math.round((w==='L'?S.vL:S.vR)/Math.max(1,vmaxNow())*100):0;}
+    case 'orientationAxis': return n.f.AXIS==='요'?((S.ph-S.yaw0)*180/Math.PI):0;
+    case 'data_variable': return S.vm.vars[n.f.VAR]||0;
+    case 'operator_add': return val(n.in.A)+val(n.in.B);
+    case 'operator_subtract': return val(n.in.A)-val(n.in.B);
+    case 'operator_multiply': return val(n.in.A)*val(n.in.B);
+    case 'operator_divide':{const b=val(n.in.B); return b?val(n.in.A)/b:0;}
+    case 'operator_random':{const a=val(n.in.FROM),b=val(n.in.TO);
+      return Math.floor(a+Math.random()*(b-a+1));}
+    case 'operator_round': return Math.round(val(n.in.A));
+    case 'operator_mathop':{const a=val(n.in.A);
+      return n.f.OP==='절댓값'?Math.abs(a):n.f.OP==='바닥'?Math.floor(a)
+            :n.f.OP==='천장'?Math.ceil(a):Math.sqrt(Math.abs(a));}
+  }
+  return 0;
+}
+function bool(n){
+  if(!n) return false;
+  const cmp=(a,op,b)=>op==='<'?a<b:op==='>'?a>b:a===b;
+  switch(n.type){
+    case 'isReflectivity': return n.f.PORT===PORT.color&&cmp(S.reflection,n.f.OP,val(n.in.VALUE));
+    case 'isDistance': return n.f.PORT===PORT.ultra&&cmp(distIn(n.f.UNIT),n.f.OP,val(n.in.VALUE));
+    case 'operator_lt': return val(n.in.A)<val(n.in.B);
+    case 'operator_gt': return val(n.in.A)>val(n.in.B);
+    case 'operator_equals': return val(n.in.A)===val(n.in.B);
+    case 'operator_and': return bool(n.b.A)&&bool(n.b.B);
+    case 'operator_or': return bool(n.b.A)||bool(n.b.B);
+    case 'operator_not': return !bool(n.b.A);
+  }
+  return false;
+}
+/* 포트 → 바퀴 (조립 카드: C=왼쪽, D=오른쪽) */
+function wheelOf(p){return p===PORT.left?'L':p===PORT.right?'R':null;}
+/* 명령 단위 → 실제 바퀴 이동 거리(cm).
+   허브는 cm를 "모터 1회전 = S.rotCm" 기준으로 회전수로 바꾸고,
+   그 회전수가 실제 바퀴 둘레만큼 굴러간다. 설정값이 틀리면 그만큼 어긋난다. */
+function unitCm(v,u){
+  const WC=Math.PI*W.wheel;               // 실제 바퀴 둘레
+  if(u==='회전') return v*WC;
+  if(u==='도')   return v/360*WC;
+  if(u==='cm')   return v/S.rotCm*WC;
+  if(u==='인치') return v*2.54/S.rotCm*WC;
+  return v;                               // '초'는 별도 처리
+}
+function setDrive(steer,dir,pct){
+  const v=vmaxNow()*(pct/100)*dir;
+  let lf=1,rf=1;
+  if(steer>=0) rf=Math.max(-1,1-Math.abs(steer)/50); else lf=Math.max(-1,1-Math.abs(steer)/50);
+  S.tL=v*lf; S.tR=v*rf;
+}
+function stopDrive(){S.tL=0;S.tR=0;}
+function runVM(){
+  const vm=S.vm; vm.loops=0; let guard=0;
+  while(guard++<4000){
+    if(vm.ended||vm.loops>120) return;
+    if(vm.blocked){
+      const b=vm.blocked;
+      if(b.kind==='wait'){ if(!bool(b.c)) return; vm.blocked=null; adv(); continue; }
+      if(b.kind==='sleep'){ if(S.tm<b.until) return; vm.blocked=null; adv(); continue; }
+      if(b.kind==='timed'){                      // '초' 단위 이동
+        if(S.tm<b.until){ setDrive(b.steer,b.dir,b.pct); return; }
+        stopDrive(); vm.blocked=null; adv(); continue;
+      }
+      const travL=Math.abs(S.trL-b.l0), travR=Math.abs(S.trR-b.r0);
+      const trav = b.only==='L'?travL : b.only==='R'?travR : Math.max(travL,travR);
+      const left=b.target-trav;
+      if(!b.braking&&left>0){
+        const vStop=Math.sqrt(2*ACCEL*left);
+        const pct=Math.max(4,Math.min(b.pct,100*vStop/vmaxNow()));
+        if(b.only){ const v=vmaxNow()*(pct/100)*b.dir;
+                    if(b.only==='L') S.tL=v; else S.tR=v; }
+        else setDrive(b.steer,b.dir,pct);
+        return;
+      }
+      // 실제 SPIKE처럼 바퀴가 완전히 멈춘 뒤 다음 블록으로.
+      // 여기서 넘어가면 남은 회전 속도가 다음 명령의 가감속에 섞여 방향이 틀어진다.
+      b.braking=true;
+      if(b.only){ if(b.only==='L') S.tL=0; else S.tR=0; } else stopDrive();
+      const rest=b.only==='L'?Math.abs(S.vL):b.only==='R'?Math.abs(S.vR):Math.abs(S.vL)+Math.abs(S.vR);
+      if(rest>0.4) return;
+      vm.blocked=null; adv(); continue;
+    }
+    if(!stepOnce()) return;
+  }
+}
+const fr=()=>S.vm.stack[S.vm.stack.length-1];
+function adv(){fr().idx++;}
+function popFrame(){S.vm.stack.pop(); if(S.vm.stack.length)adv(); else S.vm.ended=true;}
+function stepOnce(){
+  const vm=S.vm,f=fr();
+  if(!f){vm.ended=true;return false;}
+  if(f.idx>=f.list.length){
+    if(f.kind==='repeat'){f.count++; if(f.count<f.n){f.idx=0;vm.loops++;return true;} popFrame(); return true;}
+    if(f.kind==='until'){ if(bool(f.c)){popFrame();return true;} f.idx=0;vm.loops++;return true;}
+    if(f.kind==='forever'){f.idx=0;vm.loops++;return true;}
+    if(f.kind==='root'){vm.ended=true;stopDrive();return false;}
+    popFrame(); return true;
+  }
+  const n=f.list[f.idx]; vm.active=n.id;
+  const move=(steer,dir,amount,unit,only)=>{
+    if(unit==='초'){ S.state=dir>0?'전진':'후진';
+      vm.blocked={kind:'timed',until:S.tm+Math.abs(amount),steer,dir,pct:S.speed}; setDrive(steer,dir,S.speed); return; }
+    const cm=Math.abs(unitCm(amount,unit));
+    S.state = only?'모터' : (steer!==0?'회전':(dir>0?'전진':'후진'));
+    const pct = only ? (S.mspeed[only]||75) : S.speed;
+    vm.blocked={kind:'move',l0:S.trL,r0:S.trR,target:cm,steer,dir,pct,only};
+    if(only){const v=vmaxNow()*(pct/100)*dir; if(only==='L') S.tL=v; else S.tR=v;}
+    else setDrive(steer,dir,pct);
+  };
+  switch(n.type){
+    case 'setMovementPair': S.pair=n.f.PAIR.split('+'); f.idx++; return true;
+    case 'setDistance': S.rotCm=val(n.in.VALUE)*(n.f.UNIT==='인치'?2.54:1); f.idx++; return true;
+    case 'movementSpeed': S.speed=val(n.in.SPEED); f.idx++; return true;
+    case 'stopMove': stopDrive(); S.state='정지'; f.idx++; return true;
+    case 'startMove': S.state='주행'; setDrive(0,n.f.DIR==='↑'?1:-1,S.speed); f.idx++; return true;
+    case 'startSteer': S.state='주행'; setDrive(val(n.in.STEER),1,S.speed); f.idx++; return true;
+    case 'move': move(0,n.f.DIR==='↑'?1:-1,val(n.in.VALUE),n.f.UNIT,null); return false;
+    case 'steer': move(val(n.in.STEER),1,val(n.in.VALUE),n.f.UNIT,null); return false;
+
+    case 'motorSetSpeed':{const w=wheelOf(n.f.PORT); if(w)S.mspeed[w]=val(n.in.SPEED); f.idx++; return true;}
+    case 'motorStop':{const w=wheelOf(n.f.PORT); if(w){if(w==='L')S.tL=0;else S.tR=0;} f.idx++; return true;}
+    case 'motorStartDirection':{const w=wheelOf(n.f.PORT);
+      if(w){const d=n.f.DIR==='↻'?1:-1, v=vmaxNow()*((S.mspeed[w]||75)/100)*d;
+            if(w==='L')S.tL=v; else S.tR=v; S.state='모터';}
+      f.idx++; return true;}
+    case 'motorTurnForDirection':{const w=wheelOf(n.f.PORT);
+      if(!w){f.idx++;return true;}                       // 포트에 모터가 없으면 아무 일도 없다
+      move(0,n.f.DIR==='↻'?1:-1,val(n.in.VALUE),n.f.UNIT,w); return false;}
+
+    case 'resetTimer': S.tm=0; f.idx++; return true;
+    case 'resetYaw': S.yaw0=S.ph; f.idx++; return true;
+    case 'data_setvariableto': vm.vars[n.f.VAR]=val(n.in.VALUE); f.idx++; return true;
+    case 'data_changevariableby': vm.vars[n.f.VAR]=(vm.vars[n.f.VAR]||0)+val(n.in.VALUE); f.idx++; return true;
+    case 'lightDisplayText': HUB.display=String(Math.round(val(n.in.TEXT))); f.idx++; return true;
+    case 'lightDisplayOff': HUB.display=null; f.idx++; return true;
+    case 'lightDisplaySetBrightness': case 'beep': case 'stopSound': f.idx++; return true;
+    case 'beepForTime': vm.blocked={kind:'sleep',until:S.tm+val(n.in.DURATION)}; return false;
+
+    // '초 기다리기'는 프로그램만 멈춘다 — 모터는 계속 돈다.
+    // (동작 시작하기 → 기다리기 → 이동 멈추기 가 성립하는 이유)
+    case 'control_wait': vm.blocked={kind:'sleep',until:S.tm+val(n.in.DURATION)}; return false;
+    case 'control_wait_until': vm.blocked={kind:'wait',c:n.b.COND}; return false;
+    case 'control_repeat':{const c=Math.round(val(n.in.TIMES));
+      if(c<=0){f.idx++;return true;}
+      vm.stack.push({list:n.body,idx:0,kind:'repeat',n:c,count:0}); return true;}
+    case 'control_forever': vm.stack.push({list:n.body,idx:0,kind:'forever'}); return true;
+    case 'control_repeat_until':
+      if(bool(n.b.COND)){f.idx++;return true;}
+      vm.stack.push({list:n.body,idx:0,kind:'until',c:n.b.COND}); return true;
+    case 'control_if':
+      if(!bool(n.b.COND)){f.idx++;return true;}
+      vm.stack.push({list:n.body,idx:0,kind:'if'}); return true;
+    case 'control_if_else':
+      vm.stack.push({list:bool(n.b.COND)?n.body:n.body2,idx:0,kind:'if'}); return true;
+  }
+  f.idx++; return true;
+}
+
+/* ══════════ 물리 — 두 로봇의 주행과 밀어내기 ══════════ */
+function physicsRobot(dt){          // S(지금 로봇)의 차동 구동
+  const ramp=(v,t)=>{const d=t-v,m=ACCEL*dt;return Math.abs(d)<=m?t:v+Math.sign(d)*m;};
+  S.vL=ramp(S.vL,S.tL); S.vR=ramp(S.vR,S.tR);
+  const eL=S.vL*S.biasL,eR=S.vR*S.biasR;
+  S.trL+=eL*dt; S.trR+=eR*dt;
+  const v=(eL+eR)/2,w=(eR-eL)/W.track;
+  S.ph+=w*dt; S.x+=v*Math.cos(S.ph)*dt; S.y+=v*Math.sin(S.ph)*dt;
+  if(!M.headless){S.trail.push([S.x,S.y]); if(S.trail.length>2600)S.trail.shift();}
+}
+/* 밀어내기 — 맞붙으면 접촉 방향으로 미는 힘이 큰 쪽이 전진한다 */
+function resolvePush(A,B){
+  const dx=B.x-A.x,dy=B.y-A.y,d=Math.hypot(dx,dy)||1e-6;
+  const pen=2*RBOT-d; if(pen<=0) return;
+  const nx=dx/d,ny=dy/d;
+  const thrust=(r,sx)=>{               // r가 접촉 방향으로 미는 유효 출력
+    const drive=(r.vL+r.vR)/2;
+    const head=(Math.cos(r.ph)*nx+Math.sin(r.ph)*ny)*sx;
+    return Math.max(0,drive*head);
+  };
+  const tA=thrust(A,1), tB=thrust(B,-1);
+  const a2=(tA+0.8)**2, b2=(tB+0.8)**2;
+  const wA=b2/(a2+b2);                 // 힘이 센 쪽이 덜 밀려난다
+  A.x-=nx*pen*wA;     A.y-=ny*pen*wA;
+  B.x+=nx*pen*(1-wA); B.y+=ny*pen*(1-wA);
+  // 정면 대치는 바퀴가 조금씩 옆으로 미끄러진다 — 완전한 교착은 없다
+  const tx=-ny,ty=nx;
+  const jA=(Math.random()-0.5)*0.3*pen, jB=(Math.random()-0.5)*0.3*pen;
+  A.x+=tx*jA; A.y+=ty*jA; B.x+=tx*jB; B.y+=ty*jB;
+}
+const wheelsOver=r=>{S=r; return Math.max(rad(at(0,-G.wheelHalf)),rad(at(0,G.wheelHalf)))-R_OUT();};
+/* 매 스텝의 승패 판정 — 먼저 나간 쪽이 진다 */
+function judge(){
+  const A=M.A,B=M.B;
+  if(M.mode==='solo'){
+    if(wheelsOver(A)>0) return finish('이탈');
+    if(M.t>=MATCH) return finish('시간 종료');
+    if(A.vm.ended) return finish('프로그램 종료');
+    return;
+  }
+  const oA=wheelsOver(A),oB=wheelsOver(B);
+  if(oA>0&&oB>0) return finish(Math.abs(oA-oB)<0.5?'무승부':(oA>oB?'패배':'승리'));
+  if(oA>0) return finish('패배');
+  if(oB>0) return finish('승리');
+  if(M.t>=MATCH) return finish('무승부');
+  if(A.vm.ended&&B.vm.ended&&Math.abs(A.vL)+Math.abs(A.vR)+Math.abs(B.vL)+Math.abs(B.vR)<0.5)
+    return finish('무승부');
+}
+/* 한 스텝 — 화면 경기와 자동 대전이 같은 코드를 쓴다 */
+function stepFight(h){
+  M.t+=h;
+  for(const r of [M.A,M.B]) if(r){
+    S=r; r.tm+=h;
+    r.reflection=readReflection(); r.distance=readDistance();
+    runVM(); physicsRobot(h);
+  }
+  if(M.B) resolvePush(M.A,M.B);
+  judge();
+  S=M.A;
+}
+function finish(kind){
+  if(M.over) return;
+  M.over=kind; M.running=false;
+  for(const r of [M.A,M.B]) if(r){S=r; stopDrive(); r.vL=r.vR=0; r.state='종료';}
+  S=M.A;
+  M.winner = kind==='승리'?'me':(kind==='패배'?'op':null);
+  if(M.mode==='vs'&&M.recA&&['승리','패배','무승부'].includes(kind))
+    addRec(M.recA,M.recB,kind==='승리'?'A':(kind==='패배'?'B':'D'));
+  if(M.headless) return;
+  const om=oppMeta(), nm=$('myName').value.trim()||t9('me');
+  logEvent(kind==='승리'?tf('lgWin',{f:om.flag,n:oname(om)})
+        :kind==='패배'?t9('lgLose')
+        :kind==='무승부'?t9('lgDraw')
+        :kind==='이탈'?t9('lgOut')
+        :`<b>${kLabel(kind)}</b>`,M.t);
+  const v=$('verdict');
+  const col={'승리':'var(--ok)','패배':'var(--danger)','무승부':'var(--warn)','이탈':'var(--danger)',
+             '시간 종료':'var(--warn)','프로그램 종료':'var(--ink-3)','사용자 정지':'var(--ink-3)'};
+  v.querySelector('.dot').style.background=col[kind]||'var(--ink-3)';
+  v.querySelector('.txt').textContent =
+    kind==='승리'?tf('vWin',{n:nm,t:M.t.toFixed(2)})
+   :kind==='패배'?tf('vLose',{f:om.flag,n:oname(om),t:M.t.toFixed(2)})
+   :tf('vOther',{k:kLabel(kind),t:M.t.toFixed(2)});
+  v.hidden=false;
+  renderLB(); syncButtons(); paintHub();
+}
+/* 화면 없이 한 판을 끝까지 돌린다 — 10회 자동 대전·리그전용 */
+function simulateMatch(progA,progB,recA,recB){
+  const savedM=M,savedS=S;
+  M=newMatch('vs',progA,progB);
+  M.headless=true; M.recA=recA||null; M.recB=recB||null;
+  M.phase='fight'; M.count=0; M.running=true;
+  const h=1/240; let guard=0;
+  while(!M.over&&guard++<MATCH*240+20) stepFight(h);
+  if(!M.over) finish('무승부');
+  const out=M.over,t=M.t;
+  M=savedM; S=savedS;
+  return {out,t};
+}
+function logEvent(html,t,cls){
+  const el=$('log');
+  if(el.querySelector('.empty')) el.innerHTML='';
+  const d=document.createElement('div'); if(cls)d.className=cls;
+  d.innerHTML=`<span class="t">${t.toFixed(2).padStart(5,'0')}s</span>  ${html}`;
+  el.appendChild(d); el.scrollTop=el.scrollHeight;
+}
+
+/* ══════════ 허브 UI ══════════ */
+const DIGIT={'0':[7,5,5,5,7],'1':[2,6,2,2,7],'2':[7,1,7,4,7],'3':[7,1,7,1,7],'4':[5,5,7,1,1],
+             '5':[7,4,7,1,7],'6':[7,4,7,5,7],'7':[7,1,1,1,1],'8':[7,5,7,5,7],'9':[7,5,7,1,7]};
+const matrixEl=$('matrix');
+for(let i=0;i<25;i++) matrixEl.appendChild(document.createElement('span'));
+function paintMatrix(txt){
+  const cells=matrixEl.children;
+  for(let i=0;i<25;i++) cells[i].className='';
+  if(txt==null) return;
+  const g=DIGIT[String(txt).slice(-1)]; if(!g) return;
+  for(let r=0;r<5;r++) for(let c=0;c<3;c++) if(g[r]&(1<<(2-c))) cells[r*5+(c+1)].className='on';
+}
+function paintHub(){
+  let led=!HUB.connected?'off':(HUB.battery<20?'orange':'green');
+  if(M&&(M.over==='이탈'||M.over==='패배')) led='red';
+  $('hbRing').className='ring '+(led==='off'?'':led);
+  $('btled').className='btled'+(HUB.connected?' on':'');
+  paintMatrix(M&&M.running&&HUB.display!=null?HUB.display:HUB.slot);
+  [...$('slots').children].forEach((b,i)=>{
+    b.setAttribute('aria-pressed',String(i===HUB.slot));
+    b.classList.toggle('has',!!HUB.slots[i]);});
+  $('battVal').textContent=HUB.battery+'%';
+  $('connChip').className='conn'+(HUB.connected?' on':'');
+  $('connTxt').textContent=HUB.connected?t9('connOn'):t9('connOff');
+  $('btnConn').textContent=HUB.connected?t9('disconn'):t9('conn');
+}
+function slotDirty(){const s=HUB.stamp[HUB.slot]; return s!=null&&s!==fingerprint(SCRIPT);}
+function hubMsg(){
+  const m=$('hubMsg'); m.className='msg';
+  if(!HUB.connected){m.innerHTML=t9('hmOff');return;}
+  if(M&&M.running){m.innerHTML=t9('hmRun');return;}
+  if(HUB.mode==='stream'){m.className='msg ok'; m.innerHTML=t9('hmStream');return;}
+  if(!HUB.slots[HUB.slot]){m.innerHTML=tf('hmEmpty',{s:HUB.slot});return;}
+  if(slotDirty()){m.className='msg warn'; m.innerHTML=tf('hmDirty',{s:HUB.slot});return;}
+  m.className='msg ok';
+  m.innerHTML=tf('hmReady',{s:HUB.slot});
+}
+function syncButtons(){
+  const run=M&&M.running, stream=HUB.mode==='stream';
+  $('btnConn').disabled=run;
+  $('btnDl').disabled=!HUB.connected||run||stream;
+  $('btnErase').disabled=!HUB.connected||run||stream||!HUB.slots[HUB.slot];
+  $('btnPlay').disabled=!HUB.connected||run||!stream||!SCRIPT.length;
+  $('btnStop').disabled=!run;
+  ['cellRefl','cellDist','cellMot'].forEach(id=>$(id).classList.toggle('off',!stream));
+  $('simNote').textContent=run?(stream?t9('noteStream'):t9('noteHub'))
+    :(M&&M.over?kLabel(M.over):(HUB.connected?t9('noteIdle'):t9('connOff')));
+  hubMsg();
+}
+function markDirty(){syncButtons();}
+
+$('btnConn').addEventListener('click',()=>{
+  HUB.connected=!HUB.connected;
+  logEvent(HUB.connected?t9('lgConn'):t9('lgDisconn'),M?M.t:0);
+  if(!HUB.connected){RUNSRC=null;reset();}
+  paintHub(); syncButtons();
+});
+$('modeSeg').querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>{
+  if(M&&M.running) return;
+  HUB.mode=b.dataset.mode;
+  $('modeSeg').querySelectorAll('button').forEach(o=>o.setAttribute('aria-pressed',String(o===b)));
+  RUNSRC=null; reset(); syncButtons();
+}));
+for(let i=0;i<5;i++){
+  const b=document.createElement('button'); b.textContent=i;
+  b.setAttribute('aria-pressed',String(i===0)); b.title='슬롯 '+i;
+  b.addEventListener('click',()=>{if(M&&M.running)return; HUB.slot=i; RUNSRC=null; reset(); paintHub(); syncButtons();});
+  $('slots').appendChild(b);
+}
+$('hbLeft').addEventListener('click',()=>{if(M&&M.running)return; HUB.slot=(HUB.slot+4)%5; RUNSRC=null; reset(); paintHub(); syncButtons();});
+$('hbRight').addEventListener('click',()=>{if(M&&M.running)return; HUB.slot=(HUB.slot+1)%5; RUNSRC=null; reset(); paintHub(); syncButtons();});
+$('batt').addEventListener('input',()=>{HUB.battery=+$('batt').value;
+  if(M&&!M.running) reset(); paintHub(); syncButtons();});
+$('btnDl').addEventListener('click',()=>{
+  if(!HUB.connected||!SCRIPT.length) return;
+  HUB.slots[HUB.slot]=snapshot(SCRIPT); HUB.stamp[HUB.slot]=fingerprint(SCRIPT);
+  let cnt=0; walk(SCRIPT,()=>cnt++);
+  logEvent(tf('lgDl',{s:HUB.slot,c:cnt}),M?M.t:0);
+  RUNSRC=null; reset(); paintHub(); syncButtons();
+});
+$('btnErase').addEventListener('click',()=>{
+  HUB.slots[HUB.slot]=null; HUB.stamp[HUB.slot]=null;
+  logEvent(tf('lgErase',{s:HUB.slot}),M?M.t:0);
+  RUNSRC=null; reset(); paintHub(); syncButtons();
+});
+function startRun(src,label){
+  RUNSRC=src; reset(); M.running=true;
+  logEvent(label,0);
+  if(M.mode==='vs'){const om=oppMeta();
+    logEvent(tf('lgOpp',{f:om.flag,n:oname(om),c:ocountry(om),s:COUNTDOWN}),0);}
+  syncButtons(); paintHub();
+}
+$('hbCtr').addEventListener('click',()=>{
+  if(!HUB.connected){logEvent(t9('lgNoPower'),0,'warnrow');return;}
+  if(M&&M.running) return;
+  if(HUB.mode!=='download'){logEvent(t9('lgUseStream'),0,'warnrow');return;}
+  const prog=HUB.slots[HUB.slot];
+  if(!prog){logEvent(tf('lgSlotEmpty',{s:HUB.slot}),0,'warnrow');return;}
+  startRun(prog,tf('lgHubRun',{s:HUB.slot})+(slotDirty()?t9('lgStale'):''));
+});
+$('btnPlay').addEventListener('click',()=>{
+  if(!HUB.connected||HUB.mode!=='stream') return;
+  startRun(SCRIPT,t9('lgStreamRun'));
+});
+$('btnStop').addEventListener('click',()=>{if(M&&M.running) finish('사용자 정지');});
+$('reset').addEventListener('click',()=>{RUNSRC=null; reset();
+  $('log').innerHTML=`<div class="empty">${t9('logEmpty')}</div>`;
+  syncButtons();});
+document.querySelectorAll('.fbar .segm button').forEach(b=>b.addEventListener('click',()=>{
+  document.querySelectorAll('.fbar .segm button').forEach(o=>o.setAttribute('aria-pressed','false'));
+  b.setAttribute('aria-pressed','true'); mult=parseFloat(b.dataset.sp);
+}));
+
+/* ══════════ 그리기 ══════════ */
+const cv=$('cv'), ctx=cv.getContext('2d');
+let CW=440,CH=360;
+function fit(){
+  const w=cv.parentElement.clientWidth||440;
+  CW=w; CH=Math.round(Math.min(560,Math.max(300,w*0.82)));
+  const dpr=window.devicePixelRatio||1;
+  cv.width=CW*dpr; cv.height=CH*dpr; cv.style.height=CH+'px';
+  ctx.setTransform(dpr,0,0,dpr,0,0); draw();
+}
+window.addEventListener('resize',fit);
+const css=v=>getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+function draw(){
+  const s=Math.min(CW,CH)/(2*R_OUT()*1.06), cx=CW/2, cy=CH/2;
+  const X=x=>cx+x*s, Y=y=>cy-y*s;
+  ctx.clearRect(0,0,CW,CH);
+  ctx.fillStyle=css('--floor'); ctx.fillRect(0,0,CW,CH);
+  ctx.save(); ctx.shadowColor='rgba(0,0,0,.3)'; ctx.shadowBlur=22; ctx.shadowOffsetY=6;
+  ctx.beginPath(); ctx.arc(cx,cy,R_OUT()*s,0,7); ctx.fillStyle=css('--ring'); ctx.fill(); ctx.restore();
+  ctx.beginPath(); ctx.arc(cx,cy,R_MAT()*s,0,7); ctx.fillStyle=css('--mat'); ctx.fill();
+  ctx.strokeStyle=css('--hubY'); ctx.lineWidth=2; ctx.beginPath();
+  ctx.moveTo(cx-8,cy); ctx.lineTo(cx+8,cy); ctx.moveTo(cx,cy-8); ctx.lineTo(cx,cy+8); ctx.stroke();
+  const bots=M&&M.B?[M.A,M.B]:[M?M.A:null].filter(Boolean);
+  for(const r of bots){                                   // 이동 궤적 — 파랑 vs 빨강
+    if(r.trail.length>1){
+      ctx.beginPath(); ctx.moveTo(X(r.trail[0][0]),Y(r.trail[0][1]));
+      for(const pt of r.trail) ctx.lineTo(X(pt[0]),Y(pt[1]));
+      ctx.strokeStyle=r.side==='me'?css('--me'):css('--op');
+      ctx.globalAlpha=.45; ctx.lineWidth=1.5;
+      ctx.setLineDash([4,4]); ctx.stroke(); ctx.setLineDash([]); ctx.globalAlpha=1;
+    }
+  }
+  if(M&&M.B){                                             // 내 초음파 부채꼴
+    S=M.A;
+    const pB=at(G.senB), hit=S.distance<UI.seeDist;
+    ctx.save(); ctx.translate(X(pB[0]),Y(pB[1])); ctx.rotate(-S.ph);
+    const a=W.beam*Math.PI/180, L=(hit?S.distance+RBOT:40)*s;
+    const g=ctx.createLinearGradient(0,0,L,0);
+    g.addColorStop(0,hit?'rgba(240,110,90,.42)':'rgba(90,190,240,.3)');
+    g.addColorStop(1,hit?'rgba(240,110,90,0)':'rgba(90,190,240,0)');
+    ctx.beginPath(); ctx.moveTo(0,0); ctx.arc(0,0,L,-a,a); ctx.closePath(); ctx.fillStyle=g; ctx.fill();
+    ctx.restore();
+  }
+  for(const r of bots) drawBot(r,X,Y,s);
+  if(M) S=M.A;
+  ctx.beginPath(); ctx.arc(cx,cy,R_MAT()*s,0,7);
+  ctx.strokeStyle='rgba(242,194,27,.5)'; ctx.lineWidth=1;
+  ctx.setLineDash([3,5]); ctx.stroke(); ctx.setLineDash([]);
+}
+/* 로봇 한 대 — 몸통 색으로 편을 구분한다 (내 로봇 파랑 · 상대 빨강) */
+function drawBot(r,X,Y,s){
+  S=r;
+  const team=r.side==='me'?css('--me'):css('--op');
+  ctx.save(); ctx.translate(X(r.x),Y(r.y)); ctx.rotate(-r.ph);
+  const k=s;
+  ctx.fillStyle='rgba(0,0,0,.35)';
+  ctx.fillRect(G.rear*k,-G.bodyHalf*k+3,(G.bumper-G.rear)*k,2*G.bodyHalf*k);
+  ctx.fillStyle='#40485A'; ctx.strokeStyle='rgba(255,255,255,.8)'; ctx.lineWidth=1;
+  [[-(G.wheelHalf+1.4)],[G.wheelHalf-0.1]].forEach(([y0])=>{
+    ctx.fillRect(-2.8*k,y0*k,5.6*k,1.5*k); ctx.strokeRect(-2.8*k,y0*k,5.6*k,1.5*k);});
+  ctx.fillStyle=team;
+  ctx.fillRect(G.rear*k,-G.bodyHalf*k,(G.senA-G.rear)*k,2*G.bodyHalf*k);
+  ctx.fillStyle='rgba(255,255,255,.55)';
+  ctx.fillRect(G.rear*k,-G.bodyHalf*k,(G.senA-G.rear)*k*0.4,2*G.bodyHalf*k);
+  ctx.strokeStyle='rgba(255,255,255,.55)';
+  ctx.strokeRect(G.rear*k,-G.bodyHalf*k,(G.senA-G.rear)*k,2*G.bodyHalf*k);
+  ctx.fillStyle='#2A303C'; ctx.fillRect((G.bumper-1.3)*k,-G.bumperHalf*k,1.7*k,2*G.bumperHalf*k);
+  ctx.fillStyle='#FFFFFF';
+  ctx.fillRect((G.bumper-1.3)*k,-G.bumperHalf*k,1.7*k,0.95*k);
+  ctx.fillRect((G.bumper-1.3)*k,(G.bumperHalf-0.95)*k,1.7*k,0.95*k);
+  ctx.fillStyle='#F2F4F8'; ctx.strokeStyle='#2A303C';
+  ctx.fillRect((G.senB-2.2)*k,-2.6*k,2.4*k,5.2*k); ctx.strokeRect((G.senB-2.2)*k,-2.6*k,2.4*k,5.2*k);
+  ctx.fillStyle=r.reflection>=UI.thresh?'#FFFFFF':'#39404E';
+  ctx.beginPath(); ctx.arc(G.senA*k,0,1.5*k,0,7); ctx.fill(); ctx.stroke();
+  ctx.restore();
+}
+
+/* ══════════ HUD ══════════ */
+function hud(){
+  const stream=HUB.mode==='stream', A=M.A;
+  $('tTime').textContent=M.t.toFixed(2);
+  $('mTime').style.width=Math.min(100,M.t/MATCH*100)+'%';
+  $('mTime').style.background=M.t>MATCH*.85?css('--danger'):css('--accent');
+  $('tScore').textContent=tf('fmtScore',{w:SESSION.w,l:SESSION.l})+(SESSION.d?tf('fmtDraw',{d:SESSION.d}):'');
+  if(M.B){const om=oppMeta();
+    $('tOpp').textContent=`${om.flag} ${oname(om)} · ${stLabel(M.B.state)}`;
+    $('oDot').style.background=css('--op');}
+  else{$('tOpp').textContent=t9('mSolo'); $('oDot').style.background=css('--ink-3');}
+  $('tRefl').textContent=stream?A.reflection.toFixed(0):'—';
+  $('mRefl').style.width=(stream?A.reflection:0)+'%';
+  $('mRefl').style.background=A.reflection>=UI.thresh?css('--ink-2'):css('--hubY');
+  $('uThr').style.left=UI.thresh+'%';
+  const dz=A.distance>=200;
+  $('tDist').textContent=stream?(dz?'—':A.distance.toFixed(0)):'—';
+  $('mDist').style.width=(stream&&!dz?Math.min(100,A.distance):0)+'%';
+  $('mDist').style.background=(!dz&&A.distance<UI.seeDist)?css('--op'):css('--c-sensors');
+  $('tMot').textContent=stream?`${A.vL.toFixed(0)} / ${A.vR.toFixed(0)}`:'— / —';
+  $('mMot').style.width=(stream?Math.min(100,Math.abs((A.vL+A.vR)/2)/Math.max(1,vmaxNow())*100):0)+'%';
+  $('tState').textContent=M.phase==='count'&&M.running?t9('stCount'):stLabel(A.state);
+  const sc={'전진':'--cone','주행':'--cone','회전':'--c-move','후진':'--accent','모터':'--c-motors',
+            '종료':'--ink-3','정지':'--ink-3','대기':'--ink-3'};
+  $('sDot').style.background=css(sc[A.state]||'--ink-3');
+  for(const id in blockEls) blockEls[id].removeAttribute('data-active');
+  if(M.running&&M.phase==='fight'&&A.vm.active&&blockEls[A.vm.active]) blockEls[A.vm.active].dataset.active='1';
+}
+
+/* ══════════ 루프 ══════════ */
+let last=0, mult=1, wasRunning=false;
+function loop(ts){
+  requestAnimationFrame(loop);
+  const dtr=Math.min(.05,(ts-last)/1000||0); last=ts;
+  if(M.running&&!M.over){
+    if(M.phase==='count'){                    // 등을 맞대고 3초
+      M.count-=dtr;
+      const c=$('count'); c.hidden=false;
+      c.firstElementChild.textContent=Math.max(1,Math.ceil(M.count));
+      if(M.count<=0){M.phase='fight'; c.hidden=true; logEvent(t9('lgGo'),0);}
+    }else{
+      const steps=Math.max(1,Math.round(dtr*240*mult)), h=dtr*mult/steps;
+      for(let i=0;i<steps&&!M.over;i++) stepFight(h);
+    }
+  }
+  draw(); hud();
+  if(wasRunning!==M.running){wasRunning=M.running; syncButtons();}
+  paintHub();
+}
+
+/* ══════════ 전적과 리더보드 ══════════ */
+const LBKEY='roborave-sumo-lb-v1';
+const SESSION={w:0,l:0,d:0};
+let LB=(()=>{try{const j=JSON.parse(localStorage.getItem(LBKEY));
+  if(j&&j.rec) return j;}catch(e){} return {rec:{},myName:'',myCountry:'대한민국'};})();
+function saveLB(){try{localStorage.setItem(LBKEY,JSON.stringify(LB));}catch(e){}}
+function recOf(id){return LB.rec[id]||(LB.rec[id]={w:0,l:0,d:0});}
+function addRec(a,b,out){
+  const ra=recOf(a),rb=recOf(b);
+  if(out==='A'){ra.w++;rb.l++;} else if(out==='B'){ra.l++;rb.w++;} else {ra.d++;rb.d++;}
+  if(a==='me'||b==='me'){
+    const mine=a==='me'?out==='A':out==='B';
+    if(out==='D') SESSION.d++; else if(mine) SESSION.w++; else SESSION.l++;
+  }
+  saveLB();
+}
+const FLAGS=[['\ud83c\uddf0\ud83c\uddf7','대한민국'],['\ud83c\uddef\ud83c\uddf5','일본'],['\ud83c\udde8\ud83c\uddf3','중국'],
+ ['\ud83c\uddf2\ud83c\uddfe','말레이시아'],['\ud83c\uddfa\ud83c\uddf8','미국'],['\ud83c\udde9\ud83c\uddea','독일'],
+ ['\ud83c\udde7\ud83c\uddf7','브라질'],['\ud83c\uddeb\ud83c\uddf7','프랑스'],['\ud83c\uddee\ud83c\uddf3','인도'],
+ ['\ud83c\udde6\ud83c\uddfa','호주'],['\ud83c\uddec\ud83c\udde7','영국'],['\ud83c\udde8\ud83c\udde6','캐나다'],
+ ['\ud83c\uddea\ud83c\uddf8','스페인'],['\ud83c\uddee\ud83c\uddf9','이탈리아'],['\ud83c\uddf9\ud83c\udded','태국'],
+ ['\ud83c\uddfb\ud83c\uddf3','베트남'],['\ud83c\uddee\ud83c\udde9','인도네시아'],['\ud83c\uddf5\ud83c\udded','필리핀']];
+const flagOf=c=>{const f=FLAGS.find(x=>x[1]===c); return f?f[0]:'\ud83c\udff3\ufe0f';};
+function lbEntities(){
+  const es=[{id:'me',name:LB.myName||t9('me'),country:LB.myCountry||'대한민국',flag:flagOf(LB.myCountry||'대한민국')},
+            ...OPPONENTS];
+  if(CUSTOM_OPP&&LB.rec['custom']) es.push(CUSTOM_OPP);
+  return es;
+}
+function renderLB(){
+  const body=$('lbBody'); if(!body) return;
+  const rows=lbEntities().map(e=>{
+    const r=LB.rec[e.id]||{w:0,l:0,d:0}, g=r.w+r.l+r.d;
+    return {e,r,g,rate:g?r.w/g:-1};
+  }).sort((a,b)=>b.rate-a.rate||b.r.w-a.r.w||b.g-a.g).slice(0,10);
+  body.innerHTML='';
+  rows.forEach((row,i)=>{
+    const tr=document.createElement('tr');
+    if(row.e.id==='me') tr.className='me';
+    const pct=row.g?Math.round(row.rate*100):0;
+    const nmCell=row.e.id==='me'||row.e.id==='custom'?esc(row.e.name):esc(oname(row.e));
+    const ctCell=row.e.id==='custom'?esc(row.e.country):esc(countryName(row.e.country));
+    tr.innerHTML=`<td class="rank">${i+1}</td>`+
+      `<td><span class="flag">${row.e.flag}</span><b>${nmCell}</b> · ${ctCell}`+
+      (row.e.lvl?` <small style="color:var(--ink-3)">Lv.${row.e.lvl}</small>`:'')+`</td>`+
+      `<td class="n">${row.r.w} - ${row.r.l} - ${row.r.d}</td>`+
+      `<td class="n">${row.g?pct+'%':'—'}</td>`+
+      `<td><div class="bar"><i style="width:${pct}%"></i></div></td>`;
+    body.appendChild(tr);
+  });
+}
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+/* ══════════ 대전 UI — 모드·상대 선택·자동 대전 ══════════ */
+function initOppSel(){
+  const sel=$('oppSel'); sel.innerHTML='';
+  const pool=OPPONENTS.filter(o=>o.lvl===LVL);
+  pool.forEach(o=>{const op=document.createElement('option');
+    op.value=o.id; op.textContent=`${o.flag} ${oname(o)} (${ocountry(o)})`; sel.appendChild(op);});
+  if(CUSTOM_OPP){const op=document.createElement('option');
+    op.value='custom'; op.textContent=tf('optCustom',{n:CUSTOM_OPP.name}); sel.appendChild(op);}
+  const ids=[...sel.options].map(o=>o.value);
+  if(!ids.includes(OPP_SEL)) OPP_SEL=ids[0];
+  sel.value=OPP_SEL;
+}
+$('oppSel').addEventListener('change',()=>{OPP_SEL=$('oppSel').value; RUNSRC=null; reset();});
+$('lvlSel').addEventListener('change',()=>{
+  if(M&&M.running) return;
+  LVL=Math.max(1,Math.min(5,+$('lvlSel').value||1));
+  initOppSel(); RUNSRC=null; reset();
+});
+$('fightSeg').querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>{
+  if(M&&M.running) return;
+  FIGHT.mode=b.dataset.fm;
+  $('fightSeg').querySelectorAll('button').forEach(o=>o.setAttribute('aria-pressed',String(o===b)));
+  $('oppWrap').style.opacity=FIGHT.mode==='vs'?'1':'.4';
+  RUNSRC=null; reset(); syncButtons();
+}));
+$('myName').addEventListener('change',()=>{LB.myName=$('myName').value.trim(); saveLB(); renderLB();});
+$('myFlag').addEventListener('change',()=>{LB.myCountry=$('myFlag').value; saveLB(); renderLB();});
+$('btnBattle10').addEventListener('click',()=>{
+  if(M&&M.running) return;
+  if(!SCRIPT.length){logEvent(t9('lgNoBlocks'),0,'warnrow');return;}
+  if(FIGHT.mode!=='vs'){logEvent(t9('lgVsOnly'),0,'warnrow');return;}
+  const om=oppMeta(); let w=0,l=0,d=0;
+  for(let i=0;i<10;i++){
+    const r=simulateMatch(snapshot(SCRIPT),oppProgram(),'me',om.id);
+    if(r.out==='승리')w++; else if(r.out==='패배')l++; else d++;
+  }
+  logEvent(tf('lgB10',{f:om.flag,n:oname(om),w,l,d,p:Math.round(w/10*100)}),0);
+  renderLB(); reset();
+});
+$('btnLeague').addEventListener('click',()=>{
+  if(M&&M.running) return;
+  const n=OPPONENTS.length; let cnt=0;
+  for(let i=0;i<n;i++) for(let j=i+1;j<n;j++) for(let k=0;k<2;k++){
+    simulateMatch(OPPONENTS[i].make(),OPPONENTS[j].make(),OPPONENTS[i].id,OPPONENTS[j].id); cnt++;
+  }
+  logEvent(tf('lgLeague',{c:cnt}),0);
+  renderLB(); reset();
+});
+$('btnLbReset').addEventListener('click',()=>{
+  LB.rec={}; SESSION.w=SESSION.l=SESSION.d=0; saveLB(); renderLB();
+  logEvent(t9('lgLbReset'),0);
+});
+
+/* ══════════ 코드 내보내기·가져오기 — 승률 좋은 코드를 깃에 ══════════ */
+function reassignIds(list){
+  const fix=n=>{n.id='n'+(++nid);
+    for(const k in (n.in||{})){const v=n.in[k]; if(v&&!('lit' in v)) fix(v);}
+    for(const k in (n.b||{})){const v=n.b[k]; if(v) fix(v);}
+    (n.body||[]).forEach(fix); (n.body2||[]).forEach(fix);};
+  list.forEach(fix); return list;
+}
+function validProg(list){
+  if(!Array.isArray(list)||!list.length) return false;
+  let ok=true;
+  const chk=n=>{if(!n||typeof n.type!=='string'||!DEFS[n.type]||DEFS[n.type].hat){ok=false;return;}
+    for(const k in (n.in||{})){const v=n.in[k]; if(v&&!('lit' in v)) chk(v);}
+    for(const k in (n.b||{})){const v=n.b[k]; if(v) chk(v);}
+    (n.body||[]).forEach(chk); (n.body2||[]).forEach(chk);};
+  list.forEach(chk); return ok;
+}
+$('btnExport').addEventListener('click',()=>{
+  if(!SCRIPT.length){logEvent(t9('lgNoBlocks'),0,'warnrow');return;}
+  const name=$('myName').value.trim();
+  if(!name){logEvent(t9('lgNeedName'),0,'warnrow'); $('myName').focus(); return;}
+  const data={app:'roborave-sumo',ver:1,name,country:$('myFlag').value,
+              saved:new Date().toISOString().slice(0,10),prog:snapshot(SCRIPT)};
+  const blob=new Blob([JSON.stringify(data,null,1)],{type:'application/json'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob); a.download=`${name}.sumo.json`; a.click();
+  URL.revokeObjectURL(a.href);
+  logEvent(tf('lgExported',{n:name}),0);
+});
+$('btnImport').addEventListener('click',()=>$('fileImport').click());
+$('fileImport').addEventListener('change',()=>{
+  const f=$('fileImport').files[0]; if(!f) return;
+  const rd=new FileReader();
+  rd.onload=()=>{
+    let j=null; try{j=JSON.parse(rd.result);}catch(e){}
+    const prog=j&&(j.prog||j.SCRIPT||null);
+    if(!j||!validProg(prog)){logEvent(t9('lgBadFile'),0,'warnrow');return;}
+    const nm=String(j.name||f.name.replace(/\.sumo\.json$|\.json$/,'')).slice(0,20);
+    {const scan=n=>{if(n.f&&n.f.VAR&&!VARS.includes(n.f.VAR)) VARS.push(n.f.VAR);
+      for(const k in (n.in||{})){const v=n.in[k]; if(v&&!('lit' in v)) scan(v);}
+      for(const k in (n.b||{})){const v=n.b[k]; if(v) scan(v);}
+      (n.body||[]).forEach(scan); (n.body2||[]).forEach(scan);};
+     prog.forEach(scan);}
+    const asOpp=confirm(tf('cfImport',{n:nm}));
+    if(asOpp){
+      CUSTOM_OPP={id:'custom',name:nm,country:String(j.country||'?').slice(0,20),flag:'🏳️',
+                  prog:reassignIds(snapshot(prog))};
+      OPP_SEL='custom'; FIGHT.mode='vs'; initOppSel();
+      logEvent(tf('lgImpOpp',{n:nm}),0);
+    }else{
+      SCRIPT=reassignIds(snapshot(prog));
+      renderScript(); markDirty();
+      logEvent(tf('lgImpCanvas',{n:nm}),0);
+    }
+    RUNSRC=null; reset(); syncButtons();
+  };
+  rd.readAsText(f); $('fileImport').value='';
+});
+
+/* ══════════ 시작 ══════════ */
+SCRIPT=[];                      // 예제 코드는 제공하지 않는다 — 빈 캔버스에서 직접 조립
+{const b=$('buildStamp'); if(b) b.textContent=BUILD;}
+LANG=['ko','en','ja','es'].includes(LB.lang)?LB.lang:'ko';
+$('langSel').value=LANG;
+$('langSel').addEventListener('change',()=>{
+  LANG=$('langSel').value; LB.lang=LANG; saveLB(); applyLang();
+});
+$('myName').value=LB.myName||'';
+applyLang();                     // 상대·단계·국적 선택지와 문서까지 채운다
+renderScript(); reset(); fit();
+paintHub(); syncButtons();
+requestAnimationFrame(loop);
+</script>
+<script src="embed.js"></script>
+
+</body>
+</html>

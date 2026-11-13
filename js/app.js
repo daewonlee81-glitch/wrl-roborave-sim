@@ -1,4 +1,4 @@
-import { LEAGUES, EVENTS, ROUND_NAMES, aiSkill } from './events.js';
+import { LEAGUES, EVENTS, ROUND_NAMES, aiSkill, levelText } from './events.js';
 import { ICONS, LEAGUE_ICONS } from './icons.js';
 const MASCOT = k => `<img class="mascot" src="img/mascot/${k}.png" alt="" draggable="false">`;
 import * as T from './tournament.js';
@@ -123,7 +123,7 @@ function eventPage(e, divKey) {
         </div>
         ${ev.kind === 'versus' ? `<div class="card">
           <h3>🎯 자유 연습</h3>
-          <label class="row">상대 AI 실력 <b id="lvV">${stars(practiceLv)}</b></label>
+          <label class="row">상대 실력 <b id="lvV">${stars(practiceLv)}</b></label>
           <input type="range" id="lv" min="0" max="1" step="0.05" value="${practiceLv}">
           <div class="btns"><button class="btn" id="practice" ${ready ? '' : 'disabled'}>연습 경기</button>
           ${ev.engine === 'rc' ? `<button class="btn" id="free" ${ready ? '' : 'disabled'}>시간 무제한 연습</button>` : ''}</div>
@@ -180,7 +180,7 @@ function bracket(e, divKey) {
     ${t.state === 'playing' ? `
       <div class="next">
         <div><div class="rd">${ROUND_NAMES[t.round]}</div><div class="vs"><b>${esc(t.teams[0].name)}</b> <span>VS</span> <b>${esc(opp.name)}</b> <span class="nat">${opp.nat}</span></div>
-        <div class="mute">상대 실력 <span class="st">${stars(lv)}</span> · AI ${Math.round(aiSkill(ev.engine, lv) * 100)}%</div></div>
+        <div class="mute">상대 실력 <span class="st">${stars(lv)}</span> · ${levelText(ev.engine, lv)}</div></div>
         <button class="btn pri big" id="play">경기 시작 ▶</button>
       </div>` : t.state === 'champion' ? `
       <div class="next win"><div><div class="rd">🏆 우승!</div><div class="vs">${esc(t.teams[0].name)} 팀이 16팀 토너먼트에서 우승했습니다.</div></div><button class="btn pri" id="again">다시 도전</button></div>` : `

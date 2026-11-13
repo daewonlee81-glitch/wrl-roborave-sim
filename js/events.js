@@ -89,7 +89,7 @@ export const EVENTS = {
   },
   sumo: {
     name: '스모봇', en: 'SumoBot', league: 'roborave', icon: 'sumo',
-    play: 'code', kind: 'versus', engine: 'auto', status: 'soon',
+    play: 'code', kind: 'versus', engine: 'sumo', status: 'ready',
     src: 'https://worldrobotleague.net/rules/roborave/',
     rules: [
       '자율 로봇 1:1 대결 · 지름 800 mm 검은 원형 경기장, 가장자리 5 cm 흰 테두리',
@@ -97,7 +97,7 @@ export const EVENTS = {
       '두 로봇은 가운데에서 등을 맞대고 출발 → 3초 대기 → 가장자리를 찍고 와서 대결',
       '먼저 경기장 밖 바닥에 닿은 로봇이 집니다 · 한 경기 3분, 두 번 먼저 이기면 승리',
     ],
-    sim: ['워드블럭으로 프로그램을 만들어 로봇에 넣고 경기합니다 (컬러 센서 · 거리 센서 사용)'],
+    sim: ['SPIKE 워드블럭으로 프로그램을 만들어 경기합니다 (컬러 센서로 흰 테두리, 초음파 센서로 상대 감지)', '한 판 60초가 지나면 무승부 · 먼저 2판을 이기면 승리', '가상 상대 10명이 1~5단계로 나뉘어 있고, 라운드가 올라갈수록 높은 단계의 상대가 나옵니다', '빈 캔버스에서 시작합니다 — 만든 프로그램은 자동 저장']
   },
   line: {
     name: '라인 팔로잉', en: 'Line Following', league: 'roborave', icon: 'line',
@@ -145,6 +145,11 @@ export const EVENTS = {
 export const ROUND_NAMES = ['16강', '8강', '4강', '결승'];
 export const ROUND_LEVEL = [0.15, 0.45, 0.72, 1.0];
 // 엔진별 난이도 → 상대 AI 실력 값
+export function levelText(engine, level) {
+  if (engine === 'rc') return `AI ${Math.round(aiSkill('rc', level) * 100)}%`;
+  if (engine === 'sumo') return `상대 로봇 ${1 + Math.round(level * 4)}단계 / 5`;
+  return `난이도 ${Math.round(level * 100)}%`;
+}
 export function aiSkill(engine, level) {
   if (engine === 'rc') return +(0.42 + 0.53 * level).toFixed(2); // 0.50 · 0.66 · 0.80 · 0.95
   return +(0.3 + 0.7 * level).toFixed(2);
