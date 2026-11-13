@@ -45,7 +45,7 @@ export const EVENTS = {
   },
   curling: {
     name: '로봇 컬링', en: 'Robot Curling', league: 'wrl', icon: 'curling',
-    play: 'control', kind: 'versus', engine: 'curling', status: 'soon',
+    play: 'control', kind: 'versus', engine: 'curling', status: 'ready',
     src: 'https://worldrobotleague.net/rules/curling/',
     divisions: [{ key: 'drive', name: '드라이브 (바퀴 로봇)' }, { key: 'humanoid', name: '휴머노이드' }],
     rules: [
@@ -56,13 +56,13 @@ export const EVENTS = {
       '승부: 콜드게임 → 초록 블록 수 → 주황 → 노랑 순 · 회색 구역에 바퀴가 모두 들어가면(휴머노이드는 두 발) 실격',
       '드라이브: 500 g 이하, 20 × 20 × 20 cm 이내 · 휴머노이드: 팔 260 mm, 그리퍼 폭 100 mm 이하 · 모두 무선 조종',
     ],
-    sim: [],
+    sim: ['드라이브: 바퀴 로봇을 조종해 집게(A)로 블록을 잡고, LT를 누르는 동안 스트라이커 힘을 모았다가 떼면 블록이 바닥을 미끄러져 나갑니다', '휴머노이드: MAX-E1으로 블록 뒤에 서서 RB · LB를 누르고 있다가 떼면 오른발 · 왼발 킥 (힘은 누른 시간만큼)', '가상 상대는 반대편 파랑 진영에서 동시에 블록을 보냅니다 — 라운드가 올라갈수록 조준 · 힘 조절이 정확해지고 상대 블록을 쳐내기도 합니다', '블록과 매트 사이 마찰(미끄러지는 거리)은 공식 규정에 없어 가정한 값입니다'],
   },
   othello: {
-    name: '로봇배틀 오셀로', en: 'Robot Battle Othello', league: 'wrl', icon: 'othello',
+    name: '로봇배틀 오셀로', en: 'Robot Battle Othello', league: 'wrl', icon: 'othello', mixed: true,
     play: 'control', kind: 'versus', engine: 'rc', status: 'ready',
     src: 'https://worldrobotleague.net/rules/othello/',
-    divisions: [{ key: 'othello', name: '경기장 v1 (팔각 198 cm)', rs: 'othello' }, { key: 'othello2', name: '경기장 v2 (2396 × 1196 mm)', rs: 'othello2' }, { key: 'ai', name: 'AI 오셀로 (자율 · AI 카메라) — 캐드 시뮬레이터', engine: 'cad', task: 'othello_ai', play: 'code' }],
+    divisions: [{ key: 'othello', name: '🎮 조종형 — 엑스박스 컨트롤러로 조종', rs: 'othello' }, { key: 'ai', name: '🧩 자율형 — AI 오셀로 (AI 카메라 · 워드블럭 프로그램)', engine: 'cad', task: 'othello_ai', play: 'code' }],
     rules: [
       '두 가지 색의 미션 블록 11개(원판 10 · 가운데 판 1)를 내 색으로 뒤집는 경기, 2분',
       '11개를 모두 내 색으로 만들면 즉시 승리(콜드게임) · 시간이 끝나면 바닥에 평평하게 놓인 내 색 블록 1개당 1점',
@@ -71,7 +71,7 @@ export const EVENTS = {
       '로봇 500 g 이하 · 무선 조종 · 상대 밀기·잡기·들기·뒤집기 금지',
       '동점이면 1분 골든포인트',
     ],
-    sim: ['플리퍼: A 90° · B 45° · Y 16° (누르는 동안 유지) — OT 로봇 Pybricks 프로그램과 같은 동작', 'AI 오셀로 디비전: 오셀로 AI 로봇 OTAI(허스키렌즈 · 컬러 센서 2개 · 플리퍼, 예제 블록 프로그램 포함)를 불러와 로보메이커스 캐드 시뮬레이터에서 자율 경기 — 상대 로봇은 내 프로그램을 반대편에서 실행하고 라운드마다 빨라집니다'],
+    sim: ['조종형과 자율형 두 가지로 진행합니다 — 오른쪽 「조종형 · 자율형」에서 고르세요', '조종형: 플리퍼 A 90° · B 45° · Y 16° (누르는 동안 유지) — OT 로봇 Pybricks 프로그램과 같은 동작', '자율형: 오셀로 AI 로봇 OTAI(허스키렌즈 · 컬러 센서 2개 · 플리퍼, 예제 블록 프로그램 포함)를 불러와 로보메이커스 캐드 시뮬레이터에서 자율 경기 — 상대 로봇은 내 프로그램을 반대편에서 실행하고 라운드마다 빨라집니다'],
   },
   mrc: {
     name: 'MRC 축구', en: 'MRC Soccer', league: 'wrl', icon: 'mrc',
@@ -150,7 +150,7 @@ export function targetOf(engine, level) { if (engine === 'middlebot') return Mat
 export function levelText(engine, level) {
   if (engine === 'middlebot') return `목표 ${targetOf(engine, level)}점 넘기기`;
   if (engine === 'rc') return `AI ${Math.round(aiSkill('rc', level) * 100)}%`;
-  if (engine === 'cad' || engine === 'humanoid') return `상대 로봇 ${1 + Math.round(level * 4)}단계 / 5`;
+  if (engine === 'cad' || engine === 'humanoid' || engine === 'curling') return `상대 로봇 ${1 + Math.round(level * 4)}단계 / 5`;
   return `난이도 ${Math.round(level * 100)}%`;
 }
 export function aiSkill(engine, level) {

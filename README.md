@@ -11,8 +11,8 @@
 |---|---|---|---|
 | WRL | 휴머노이드 배틀 | 조종형 (ROBOTIS MAX-E1 공식 모션 ↔ 엑스박스 버튼, 가상 상대 MAX-E1) | ✅ |
 | WRL | 휴머노이드 릴레이 | 조종형 · 기록 도전 | 준비 중 |
-| WRL | 로봇 컬링 (드라이브 · 휴머노이드) | 조종형 | 준비 중 |
-| WRL | 로봇배틀 오셀로 | 조종형 · AI 오셀로 디비전은 자율형(캐드 시뮬레이터) | ✅ |
+| WRL | 로봇 컬링 (드라이브 · 휴머노이드 MAX-E1) | 조종형 | ✅ |
+| WRL | 로봇배틀 오셀로 | 조종형 · 자율형(AI 오셀로, 캐드 시뮬레이터) 두 가지 | ✅ |
 | WRL | MRC 축구 (Open·LEGO · Micro) | 조종형 | ✅ |
 | RoboRAVE | 스모봇 | 자율형 (로보메이커스 캐드 시뮬레이터 · 가상 상대 · 3판 2선승) | ✅ |
 | RoboRAVE | 라인 팔로잉 | 자율형 · 기록 도전 (캐드 시뮬레이터 예정) | 준비 중 |
@@ -31,7 +31,8 @@
 | `games/rc/` | 조종 시뮬레이터 ([Robomakers_Simul](https://github.com/daewonlee81-glitch/Robomakers_Simul)) + `embed.js` 연결 코드 |
 | `games/cad/` | [로보메이커스 캐드](https://github.com/daewonlee81-glitch/mindstorms-cad) 시뮬레이터를 같은 사이트(`/mindstorms-cad/`)에서 불러와 대회 진행을 붙이는 화면 + `wrl-addon.js` (스모 가상 상대 · AI 오셀로 판정) · `robots/` 기본 로봇 도면 (스모 CUP, 오셀로 AI OTAI) |
 | `games/middlebot/` | 미들봇 조종 시뮬레이터 — 메카넘 4WD + EEZYbotARM 흡착 로봇, 신호등 기둥·블록 쌓기 점수 (경기장 배치·점수표는 `CFG`에 모은 가정값) |
-| `games/humanoid/` | 휴머노이드 배틀 — MAX-E1을 Dynamic-Makers와 같은 방식으로 렌더링(ROBOTIS STEP 부품 메시 `parts-data.js` + 부품 조립 `maxe1-cad.json`), 공식 예제 모션(`maxe1-motions.json`, © ROBOTIS), 타격·다운·링아웃·KO 판정, 가상 상대 AI |
+| `games/humanoid/` | 휴머노이드 배틀 — MAX-E1을 Dynamic-Makers와 같은 방식으로 렌더링(ROBOTIS STEP 부품 메시 `parts-data.js` + 부품 조립 `maxe1-cad.json`), 공식 예제 모션(`maxe1-motions.json`, © ROBOTIS), 타격·다운·링아웃·KO 판정, 가상 상대 AI · 모델·모션·넘어짐 코드는 `maxe1.js` 공용 모듈 |
+| `games/curling/` | 로봇 컬링 — 3000 × 1000 mm 경기장 · 하우스 점수 · 블록 미끄럼(쿨롱 마찰, 마찰값은 가정) · 드라이브(집게 + 스트라이커) / 휴머노이드(MAX-E1 킥) 디비전 · 동시에 진행하는 가상 상대 |
 | `img/` | WRL 2027 포스터의 로고와 종목 마스코트 |
 | `vendor/` | three.js 0.160 (MIT), cannon-es 0.20 (MIT) |
 

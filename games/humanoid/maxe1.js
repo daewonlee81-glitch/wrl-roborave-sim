@@ -84,7 +84,7 @@ const BODY_TREE = side => {
     [side + '_foot', side + '_ankle_frame', side + '_ankle_roll', [1, 0, 0]],
   ];
 };
-export function buildRobot(teamColor) {
+export function buildRobot(teamColor, label) {
   const root = new THREE.Group();                 // 경기장 위치 · 방향 (three)
   const tilt = new THREE.Group(); root.add(tilt);  // 넘어짐 (발 쪽을 축으로)
   const body = new THREE.Group(); tilt.add(body);   // 바닥까지 높이 보정
@@ -126,7 +126,7 @@ export function buildRobot(teamColor) {
   // 팀 표시 (로봇 모습은 그대로 두고 발밑 고리 · 머리 위 표식만)
   const ring = new THREE.Mesh(new THREE.RingGeometry(0.075, 0.09, 40), new THREE.MeshBasicMaterial({ color: teamColor, transparent: true, opacity: 0.85 }));
   ring.rotation.x = -Math.PI / 2; ring.position.y = 0.002; root.add(ring);
-  const tag = (() => { const c = document.createElement('canvas'); c.width = 96; c.height = 48; const g = c.getContext('2d'); g.fillStyle = '#' + teamColor.toString(16).padStart(6, '0'); g.beginPath(); g.roundRect(2, 2, 92, 44, 10); g.fill(); g.fillStyle = '#fff'; g.font = 'bold 28px system-ui'; g.textAlign = 'center'; g.fillText(teamColor === 0x2f6bff ? '나' : '상대', 48, 34); const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(c), depthTest: false })); sp.scale.set(0.07, 0.035, 1); sp.position.y = 0.43; sp.renderOrder = 5; root.add(sp); return sp; })();
+  const tag = (() => { const c = document.createElement('canvas'); c.width = 96; c.height = 48; const g = c.getContext('2d'); g.fillStyle = '#' + teamColor.toString(16).padStart(6, '0'); g.beginPath(); g.roundRect(2, 2, 92, 44, 10); g.fill(); g.fillStyle = '#fff'; g.font = 'bold 28px system-ui'; g.textAlign = 'center'; g.fillText(label || (teamColor === 0x2f6bff ? '나' : '상대'), 48, 34); const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(c), depthTest: false })); sp.scale.set(0.07, 0.035, 1); sp.position.y = 0.43; sp.renderOrder = 5; root.add(sp); return sp; })();
   return { root, tilt, body, mj, B, J, M, pivots, ring, tag };
 }
 const _inv = new THREE.Matrix4(), _mb = new THREE.Matrix4(), _mp = new THREE.Matrix4(), _pin = new THREE.Vector3();
@@ -144,7 +144,7 @@ export class Bot {
   // opts: scene, groundY(바닥 높이 m), x, z, th, name
   constructor(team, opts = {}) {
     this.team = team; this.name = opts.name || (team ? '상대' : '나'); this.groundY = opts.groundY || 0;
-    this.m = buildRobot(team ? 0xd23a2a : 0x2f6bff); opts.scene.add(this.m.root);
+    this.m = buildRobot(team ? 0xd23a2a : 0x2f6bff, opts.name); opts.scene.add(this.m.root);
     this.reset(opts.x || 0, opts.z || 0, opts.th || 0);
   }
   reset(x, z, th) {

@@ -13,11 +13,11 @@ const store = {
 
 const myName = () => store.get('team', '') || '우리 팀';
 const stars = lv => { const n = Math.round(1 + lv * 4); return '★'.repeat(n) + '☆'.repeat(5 - n); };
-const playBadge = ev => ev.play === 'control' ? '<span class="badge ctl">🎮 조종형</span>' : '<span class="badge code">🧩 자율형 · 코딩</span>';
+const playBadge = ev => ev.mixed ? '<span class="badge ctl">🎮 조종형</span> <span class="badge code">🧩 자율형</span>' : ev.play === 'control' ? '<span class="badge ctl">🎮 조종형</span>' : '<span class="badge code">🧩 자율형 · 코딩</span>';
 const kindBadge = ev => ev.kind === 'versus' ? '<span class="badge">⚔ 가상 상대와 대결</span>' : '<span class="badge">⏱ 기록 도전</span>';
 const divOf = (ev, key) => (ev.divisions || []).find(d => d.key === key) || (ev.divisions || [])[0] || { key: 'std', name: '' };
 const tKey = (evKey, div) => evKey + '.' + div;
-const eff = (ev, div) => Object.assign({}, ev, { engine: div.engine || ev.engine, play: div.play || ev.play, task: div.task || ev.task });
+const eff = (ev, div) => Object.assign({}, ev, { mixed: false, engine: div.engine || ev.engine, play: div.play || ev.play, task: div.task || ev.task });
 
 /* ---------------- 라우팅 ---------------- */
 function route() {
@@ -112,7 +112,7 @@ function eventPage(e, divKey) {
         <p class="src">출처: <a href="${ev.src}" target="_blank" rel="noopener">${ev.src.replace('https://', '')}</a></p>
       </div>
       <div class="side">
-        ${ev.divisions && ev.divisions.length > 1 ? `<div class="card"><h3>디비전 · 경기장</h3>
+        ${ev.divisions && ev.divisions.length > 1 ? `<div class="card"><h3>${ev0.mixed ? '조종형 · 자율형' : '디비전 · 경기장'}</h3>
           <select id="div">${ev.divisions.map(d => `<option value="${d.key}" ${d.key === div.key ? 'selected' : ''}>${esc(d.name)}</option>`).join('')}</select></div>` : (div.name ? `<div class="card"><h3>디비전</h3><div>${esc(div.name)}</div></div>` : '')}
         <div class="card">
           <h3>🏆 대진표 도전</h3>
@@ -130,7 +130,7 @@ function eventPage(e, divKey) {
           <div class="btns"><button class="btn" id="practice" ${ready ? '' : 'disabled'}>연습 경기</button>
           ${ev.engine === 'rc' ? `<button class="btn" id="free" ${ready ? '' : 'disabled'}>시간 무제한 연습</button>` : ''}</div>
         </div>
-        ${ev.play === 'control' ? controlsCard(ev) : ''}
+        ${ev.play === 'control' ? controlsCard(ev, div.key) : ''}
       </div>
     </div>
   </section>`;
@@ -145,11 +145,15 @@ function eventPage(e, divKey) {
   $('#free')?.addEventListener('click', () => openGame(e, div, { mode: 'practice', level: +$('#lv').value, free: true }));
 }
 
-function controlsCard(ev) {
+function controlsCard(ev, dk) {
   const rows = ev.icon === 'humanoid_battle'
     ? [['D패드 ↑ ↓ / ← →', '걷기 / 제자리 돌기 (RT 빠르게)'], ['LT + D패드 ← →', '옆걸음'], ['A · B · X', '펀치 · 오른팔 옆 공격 · 왼팔 옆 공격'], ['RB · LB', '오른발 킥 · 왼발 킥'], ['오른스틱 ← →', '왼팔 훅 · 오른팔 훅'], ['왼스틱 ← →', '왼쪽 · 오른쪽 막기'], ['Y', '일어서기'], ['View · Menu', '카메라 · 일시정지']]
     : ev.icon === 'middlebot'
     ? [['방향키 ↑ ↓ / ← →', '전진·후진 / 제자리 회전 (50%)'], ['LT + 방향키 ← →', '좌우 평행이동'], ['RT', '파워 50% → 100%'], ['RB + 오른스틱 ← →', '턴테이블 회전'], ['오른스틱 ↕ · 왼스틱 ↕', '어깨 · 엘보'], ['A · B', '흡착 집기 · 놓기'], ['Y', '카메라']]
+    : ev.icon === 'curling' && dk === 'humanoid'
+    ? [['D패드 ↑ ↓ / ← →', '걷기 / 제자리 돌기'], ['LT + D패드 ← →', '옆걸음'], ['RB · LB (누르고 있다가 떼기)', '오른발 · 왼발 킥 — 누른 시간만큼 세게'], ['Y · View', '카메라'], ['Menu', '일시정지']]
+    : ev.icon === 'curling'
+    ? [['D패드 ↑ ↓', '전진 · 후진 (기본 50%)'], ['D패드 ← → · 대각선', '포인트 턴 · 스윙턴'], ['RT', '파워 50% → 100%'], ['A', '집게 닫기 · 열기 (블록 잡기)'], ['LT (누르고 있다가 떼기)', '스트라이커 — 누른 시간만큼 세게 침'], ['Y · View', '카메라'], ['Menu', '일시정지']]
     : ev.key === 'othello' || ev.icon === 'othello'
     ? [['D패드 ↑ ↓', '전진 · 후진 (기본 50%)'], ['D패드 ← →', '제자리 회전'], ['RT', '파워 50% → 100%'], ['A · B · Y', '플리퍼 90° · 45° · 16°'], ['키보드 C', '카메라 전환 (Y는 플리퍼)'], ['Menu', '일시정지']]
     : [['D패드 ↑ ↓', '전진 · 후진'], ['D패드 ← →', '포인트 턴'], ['D패드 대각선', '스윙턴'], ['RT', '누르는 동안 파워 100'], ['LT', '슛 (MRC Open·LEGO)'], ['RB', '조종 로봇 바꾸기'], ['Y', '카메라']];
@@ -213,7 +217,7 @@ function gameUrl(ev, div, o) {
   if (o.opp) p.set('opp', `${o.opp.name} (${o.opp.nat})`);
   if (o.free) p.set('free', '1');
   if (ev.engine === 'rc') { p.set('rs', div.rs); p.set('ai', aiSkill('rc', o.level)); p.set('mate', 0.75); return 'games/rc/index.html?' + p; }
-  p.set('event', ev.key || ''); p.set('level', o.level); if (ev.task) p.set('task', ev.task);
+  p.set('event', ev.key || ''); p.set('div', div.key || ''); p.set('level', o.level); if (ev.task) p.set('task', ev.task);
   const tg = targetOf(ev.engine, o.level); if (tg) p.set('target', tg);
   return `games/${ev.engine}/index.html?` + p;
 }

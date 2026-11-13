@@ -1,0 +1,611 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>로봇 컬링 — WRL</title>
+<link rel="icon" href="../../favicon.svg" type="image/svg+xml">
+<style>
+:root{--bg:#1d2238;--panel:#262c47ee;--line:#454d74;--text:#eef0f8;--mute:#a7abc6;--gold:#ffd25a;--ok:#3fb950;--red:#e5483b;--blue:#2f6bff}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;overflow:hidden;background:var(--bg);color:var(--text);font:13px/1.45 system-ui,-apple-system,"Apple SD Gothic Neo","Malgun Gothic",sans-serif}
+#view{position:absolute;inset:0;outline:none}
+#view canvas{display:block;width:100%;height:100%}
+.btn{background:#3a4166;color:var(--text);border:1px solid var(--line);border-radius:8px;padding:6px 12px;cursor:pointer;font:inherit;font-weight:600}
+.btn:hover{background:#474f7a}
+.btn.pri{background:linear-gradient(90deg,#ffd25a,#ff8f5a);color:#2a1d05;border-color:transparent}
+#hud{position:absolute;top:10px;left:50%;transform:translateX(-50%);display:flex;filter:drop-shadow(0 2px 8px #0008);pointer-events:none}
+#hud .tm{padding:4px 14px;font-weight:800;font-size:24px;min-width:92px;text-align:center;font-variant-numeric:tabular-nums}
+#hud .tm small{display:block;font-size:11px;font-weight:600;opacity:.9;margin-top:-2px}
+#hud .a{background:var(--red);border-radius:10px 0 0 10px}#hud .b{background:var(--blue);border-radius:0 10px 10px 0}
+#hud .mid{background:#0d1117ee;padding:5px 16px;text-align:center;min-width:110px}
+#hud .clock{font-size:22px;font-weight:800;font-variant-numeric:tabular-nums}
+#hud .per{font-size:11px;color:var(--mute)}
+#exit{position:absolute;left:10px;top:10px;z-index:6}
+#side{position:absolute;left:10px;top:52px;width:260px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:9px 11px;font-size:12px;pointer-events:none}
+#side .row{display:flex;justify-content:space-between;gap:6px;border-top:1px solid #ffffff10;padding:3px 0}
+#side .row:first-child{border-top:0}
+#side .msg{margin-top:6px;color:var(--gold)}
+#side .bar{height:8px;border-radius:4px;background:#ffffff18;overflow:hidden;margin-top:3px}
+#side .bar i{display:block;height:100%;background:linear-gradient(90deg,#ffd25a,#ff5a3c)}
+#banner{position:absolute;top:30%;left:50%;transform:translate(-50%,-50%);font-size:clamp(22px,3vw,42px);font-weight:900;text-shadow:0 3px 12px #000;pointer-events:none;text-align:center;white-space:pre-line;opacity:0;transition:opacity .2s;max-width:92%}
+#banner.show{opacity:1}
+#pad{position:absolute;left:10px;bottom:10px;background:#0d1117e6;border:1px solid var(--line);border-radius:10px;padding:6px 10px;font-size:12px;display:flex;gap:8px;align-items:center}
+#pad i{width:9px;height:9px;border-radius:50%;background:#6e7681;display:inline-block}
+#pad.on{border-color:var(--ok)} #pad.on i{background:var(--ok);box-shadow:0 0 6px var(--ok)}
+#cam{position:absolute;right:10px;bottom:10px;background:#0d1117cc;border:1px solid var(--line);border-radius:8px;padding:6px 10px;font-size:12px;pointer-events:none}
+#helpBtn{position:absolute;right:10px;top:10px;z-index:6}
+#help{position:absolute;right:10px;top:52px;width:340px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:12px;display:none;max-height:calc(100% - 110px);overflow:auto}
+#help.on{display:block}
+table.k{width:100%;border-collapse:collapse}
+table.k td{border-bottom:1px solid #ffffff12;padding:4px 3px;vertical-align:top}
+table.k td:first-child{color:var(--mute);white-space:nowrap;width:42%}
+#overlay{position:absolute;inset:0;background:#0b0f14d0;display:flex;align-items:center;justify-content:center;z-index:8;padding:16px}
+.card{background:#2b3150;border:1px solid var(--line);border-radius:14px;padding:20px 24px;max-width:720px;box-shadow:0 20px 60px #000a}
+.card h1{margin:0 0 6px;font-size:22px}
+.card p{margin:6px 0;color:#d6d9ec}
+.card .note{color:var(--mute);font-size:12px}
+.card .cols{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.card table.res td:last-child{text-align:right;font-variant-numeric:tabular-nums}
+</style>
+<script type="importmap">
+{"imports":{"three":"../../vendor/three/build/three.module.js","three/addons/":"../../vendor/three/examples/jsm/","cannon-es":"../../vendor/cannon-es/cannon-es.js"}}
+</script>
+</head>
+<body>
+<div id="view" tabindex="0">
+  <div id="hud"><div class="tm a"><span id="sA">0</span><small>나 (빨강)</small></div><div class="mid"><div class="clock" id="clock">2:00</div><div class="per" id="per">대기</div></div><div class="tm b"><span id="sB">0</span><small>상대 (파랑)</small></div></div>
+  <button class="btn" id="exit">← 나가기</button>
+  <div id="side"></div>
+  <div id="banner"></div>
+  <div id="pad"><i></i><span id="padTxt">컨트롤러 없음 — 키보드 사용</span></div>
+  <div id="cam"></div>
+  <button class="btn" id="helpBtn">조작법 (H)</button>
+  <div id="help"></div>
+  <div id="overlay"><div class="card" id="card">불러오는 중…</div></div>
+</div>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import * as CANNON from 'cannon-es';
+
+/* ============================================================
+   로봇 컬링 (WRL) — worldrobotleague.net/rules/curling
+   · 경기장 3000 × 1000 mm: 빨강 진영 740 · 회색 가운데 1400 · 파랑 진영 740 (선 30 mm), 가운데 하우스
+   · 하우스: 노랑 Ø500 1점 · 주황 Ø300 3점 · 초록 Ø150 5점 · 검정 Ø30 50점 (대진표에서는 닿으면 콜드게임)
+   · 블록 40 mm 정육면체 10 g, 팀마다 10개 — 출발 구역(300 × 200) 앞 100 mm에 40 mm 칸 10개로 한 줄
+   · 2분, 두 팀 동시에 · 블록을 던지면 안 됨 · 회색 구역에 바퀴가 모두(휴머노이드는 두 발) 들어가면 실격
+   · 디비전: 드라이브(바퀴 로봇 500 g · 20 cm 이내, 집게 · 스트라이커) / 휴머노이드(MAX-E1, 킥으로 블록 치기)
+   ============================================================ */
+const P = new URLSearchParams(location.search);
+const EMBED = P.get('embed') === '1', MODE = P.get('mode') || 'practice';
+const LEVEL = Math.max(0, Math.min(1, +(P.get('level') || 0.3)));
+const DIV = P.get('div') === 'humanoid' ? 'humanoid' : 'drive';
+const post = m => { if (EMBED) try { parent.postMessage(Object.assign({ source: 'wrlsim' }, m), '*'); } catch (e) {} };
+const $ = s => document.querySelector(s);
+const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
+const wrapA = a => { while (a > Math.PI) a -= 2 * Math.PI; while (a < -Math.PI) a += 2 * Math.PI; return a; };
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+const approach = (v, t, d) => v < t ? Math.min(t, v + d) : Math.max(t, v - d);
+
+const C = {
+  L: 3.0, W: 1.0, line: 0.03, inX: 1.47, inZ: 0.47, grey: 0.70, zoneLine: 0.73,
+  startD: 0.20, startW: 0.30, rowX: 1.15, cell: 0.04, nBlocks: 10,
+  rings: [{ r: 0.25, pts: 1, name: '노랑', col: '#ffd21f' }, { r: 0.15, pts: 3, name: '주황', col: '#ff8a2a' }, { r: 0.075, pts: 5, name: '초록', col: '#2fb344' }, { r: 0.015, pts: 50, name: '검정', col: '#111111' }],
+  block: { s: 0.04, mass: 0.010, contact: 0.024 },
+  mu: 0.18,            // 블록 ↔ 매트 마찰 (가정)
+  time: 120, extra: 60,
+};
+const TEAMC = [0xd8342c, 0x2a5fe0], TEAMN = ['빨강 (나)', '파랑 (상대)'];
+
+/* ---------------- 장면 ---------------- */
+const view = $('#view');
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2)); renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+view.prepend(renderer.domElement);
+const scene = new THREE.Scene(); scene.background = new THREE.Color(0xeef2f8); scene.fog = new THREE.Fog(0xeef2f8, 6, 14);
+const camera = new THREE.PerspectiveCamera(45, 1, 0.01, 40);
+const controls = new OrbitControls(camera, renderer.domElement); controls.enabled = false;
+scene.add(new THREE.HemisphereLight(0xffffff, 0x8899aa, 1.4));
+const sun = new THREE.DirectionalLight(0xffffff, 1.6); sun.position.set(0.6, 3.2, 1.4); sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048);
+Object.assign(sun.shadow.camera, { left: -1.8, right: 1.8, top: 1.2, bottom: -1.2, near: 0.5, far: 8 }); scene.add(sun);
+function resize() { const w = view.clientWidth, h = view.clientHeight; renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix(); }
+new ResizeObserver(resize).observe(view);
+{ // 경기장 매트 (1 m = 1000 px)
+  const c = document.createElement('canvas'); c.width = 3000; c.height = 1000; const g = c.getContext('2d');
+  const X = x => (x + 1.5) * 1000, Z = z => (z + 0.5) * 1000;
+  g.fillStyle = '#111'; g.fillRect(0, 0, 3000, 1000);
+  g.fillStyle = '#f6d4d0'; g.fillRect(X(-1.47), Z(-0.47), 740, 940);
+  g.fillStyle = '#d3d6dc'; g.fillRect(X(-0.70), Z(-0.47), 1400, 940);
+  g.fillStyle = '#d3dcf6'; g.fillRect(X(0.73), Z(-0.47), 740, 940);
+  for (const s of [-1, 1]) { // 출발 구역 · 블록 줄
+    const x0 = s < 0 ? -1.47 : 1.27; g.strokeStyle = s < 0 ? '#c0392b' : '#2a5fe0'; g.lineWidth = 6; g.strokeRect(X(x0), Z(-0.15), 200, 300);
+    g.fillStyle = '#ffffff99'; g.font = 'bold 34px system-ui'; g.textAlign = 'center'; g.fillText('START', X(x0 + 0.1), Z(0) + 12);
+    g.strokeStyle = '#00000040'; g.lineWidth = 3; for (let i = 0; i < 10; i++) g.strokeRect(X(s * C.rowX - 0.02), Z(-0.2 + i * 0.04), 40, 40);
+  }
+  for (const r of C.rings) { g.fillStyle = r.col; g.beginPath(); g.arc(X(0), Z(0), r.r * 1000, 0, Math.PI * 2); g.fill(); }
+  const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 8;
+  const mat = new THREE.Mesh(new THREE.PlaneGeometry(C.L, C.W), new THREE.MeshStandardMaterial({ map: tex, roughness: 0.85 }));
+  mat.rotation.x = -Math.PI / 2; mat.position.y = 0.0005; mat.receiveShadow = true; scene.add(mat);
+  const fl = new THREE.Mesh(new THREE.PlaneGeometry(12, 12), new THREE.MeshStandardMaterial({ color: 0xc9ced8, roughness: 1 })); fl.rotation.x = -Math.PI / 2; fl.receiveShadow = true; scene.add(fl);
+}
+
+/* ---------------- 물리 ---------------- */
+const world = new CANNON.World({ gravity: new CANNON.Vec3(0, -9.81, 0) });
+world.broadphase = new CANNON.SAPBroadphase(world); world.allowSleep = true; world.solver.iterations = 20;
+const mFloor = new CANNON.Material('f'), mBlock = new CANNON.Material('b'), mBot = new CANNON.Material('r');
+// 블록 ↔ 매트 미끄럼 마찰은 아래 slideFriction()에서 직접 계산 (cannon의 상자 접점 4개 마찰은 실제보다 몇 배 크게 나옴)
+world.addContactMaterial(new CANNON.ContactMaterial(mFloor, mBlock, { friction: 0, restitution: 0.05 }));
+world.addContactMaterial(new CANNON.ContactMaterial(mBlock, mBlock, { friction: 0.25, restitution: 0.45 }));
+world.addContactMaterial(new CANNON.ContactMaterial(mBot, mBlock, { friction: 0.15, restitution: 0.15 }));
+const floorB = new CANNON.Body({ mass: 0, material: mFloor, shape: new CANNON.Plane() }); floorB.quaternion.setFromEuler(-Math.PI / 2, 0, 0); world.addBody(floorB);
+
+/* 블록: 40 mm 정육면체, 위아래 모서리 모따기 */
+const BLOCKS = [];
+const blockGeo = (() => { const s = C.block.s, c = 0.006, h = s / 2; const shp = new THREE.Shape(); shp.moveTo(-h, -h); shp.lineTo(h, -h); shp.lineTo(h, h); shp.lineTo(-h, h); shp.closePath();
+  const g = new THREE.ExtrudeGeometry(shp, { depth: s - 2 * c, bevelEnabled: true, bevelThickness: c, bevelSize: 0.0001, bevelSegments: 1 }); g.translate(0, 0, -(s - 2 * c) / 2); g.rotateX(Math.PI / 2); return g; })();
+function makeBlock(team, x, z) {
+  const mesh = new THREE.Mesh(blockGeo, new THREE.MeshStandardMaterial({ color: TEAMC[team], roughness: 0.5 })); mesh.castShadow = true; mesh.receiveShadow = true; scene.add(mesh);
+  const s = C.block.s, body = new CANNON.Body({ mass: C.block.mass, material: mBlock, shape: new CANNON.Box(new CANNON.Vec3(s / 2, s / 2, s / 2)), linearDamping: 0.01, angularDamping: 0.3 });
+  body.position.set(x, s / 2 + 0.0005, z); body.sleepSpeedLimit = 0.01; body.sleepTimeLimit = 0.4; world.addBody(body);
+  const b = { team, mesh, body, held: null, played: false, out: false }; BLOCKS.push(b); return b;
+}
+function slideFriction(dt) { // 쿨롱 마찰: 바닥에 닿은 블록의 수평 속도를 μg만큼 줄임 → 미끄러지는 거리 = v² / (2μg)
+  const dv = C.mu * 9.81 * dt;
+  for (const b of BLOCKS) {
+    if (b.out || b.held || b.body.sleepState === CANNON.Body.SLEEPING || b.body.position.y > C.block.s / 2 + 0.004) continue;
+    const v = b.body.velocity, sp = Math.hypot(v.x, v.z);
+    if (sp <= dv) { v.x = 0; v.z = 0; } else { const k = (sp - dv) / sp; v.x *= k; v.z *= k; }
+    const w = b.body.angularVelocity, kw = Math.max(0, 1 - 25 * dt); w.x *= kw; w.y *= kw; w.z *= kw;
+  }
+}
+function clearBlocks() { for (const b of BLOCKS) { scene.remove(b.mesh); world.removeBody(b.body); } BLOCKS.length = 0; }
+
+/* ---------------- 드라이브 로봇 ---------------- */
+const DR = { L: 0.18, W: 0.16, H: 0.09, vmax: 0.6, wmax: 4.0, pocket: 0.06, grip: 0.10, vStrikeMin: 0.35, vStrikeMax: 3.0 };
+function makeDriveMesh(team) {
+  const g = new THREE.Group(), col = TEAMC[team];
+  const m = (geo, c) => { const o = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ color: c, roughness: 0.55 })); o.castShadow = true; o.receiveShadow = true; return o; };
+  const body = m(new THREE.BoxGeometry(DR.L, 0.05, DR.W), 0x2b2e35); body.position.y = 0.045; g.add(body);
+  const top = m(new THREE.BoxGeometry(DR.L * 0.8, 0.03, DR.W * 0.85), col); top.position.set(-0.01, 0.085, 0); g.add(top);
+  for (const [x, z] of [[0.05, DR.W / 2 + 0.01], [0.05, -DR.W / 2 - 0.01], [-0.05, DR.W / 2 + 0.01], [-0.05, -DR.W / 2 - 0.01]]) { const w = m(new THREE.CylinderGeometry(0.028, 0.028, 0.018, 18), 0x15161a); w.rotation.x = Math.PI / 2; w.position.set(x, 0.028, z); g.add(w); }
+  const arms = []; // 집게 (폭 100 mm 이내)
+  for (const s of [-1, 1]) { const a = new THREE.Group(); a.position.set(DR.L / 2, 0.02, s * DR.grip / 2); const bar = m(new THREE.BoxGeometry(0.055, 0.025, 0.008), 0xc9cdd4); bar.position.x = 0.027; a.add(bar); g.add(a); arms.push({ a, s }); }
+  const striker = m(new THREE.BoxGeometry(0.012, 0.022, 0.04), 0xffcc33); striker.position.set(DR.L / 2 + 0.004, 0.02, 0); g.add(striker);
+  const flag = m(new THREE.BoxGeometry(0.004, 0.06, 0.03), col); flag.position.set(-0.07, 0.13, 0); g.add(flag);
+  return { g, arms, striker };
+}
+class Drive {
+  constructor(team) {
+    this.team = team; this.m = makeDriveMesh(team); scene.add(this.m.g);
+    this.body = new CANNON.Body({ mass: 0, type: CANNON.Body.KINEMATIC, material: mBot });
+    this.body.addShape(new CANNON.Box(new CANNON.Vec3(DR.L / 2, 0.035, DR.W / 2 + 0.02)), new CANNON.Vec3(0, 0.04, 0));
+    for (const s of [-1, 1]) this.body.addShape(new CANNON.Box(new CANNON.Vec3(0.028, 0.0125, 0.004)), new CANNON.Vec3(DR.L / 2 + 0.028, 0.02, s * DR.grip / 2));
+    this.body.allowSleep = false; world.addBody(this.body); // 스트라이커는 치는 순간 속도를 직접 줌 (화면에만 움직임)
+    this.reset();
+  }
+  reset() { const s = this.team ? 1 : -1; Object.assign(this, { x: s * 1.37, z: 0, th: this.team ? Math.PI : 0, v: 0, w: 0, grip: false, held: null, charge: 0, charging: false, strikeT: 0, power: 0.5 }); this.sync(0); }
+  fwd() { return [Math.cos(this.th), -Math.sin(this.th)]; }
+  local(lx, lz) { const c = Math.cos(this.th), s = Math.sin(this.th); return [this.x + lx * c + lz * s, this.z - lx * s + lz * c]; }
+  toLocal(x, z) { const c = Math.cos(this.th), s = Math.sin(this.th), dx = x - this.x, dz = z - this.z; return [dx * c - dz * s, dx * s + dz * c]; }
+  inPocket(b) { const [lx, lz] = this.toLocal(b.body.position.x, b.body.position.z); return lx > DR.L / 2 && lx < DR.L / 2 + C.block.s / 2 + DR.pocket && Math.abs(lz) < DR.grip / 2 - 0.004 && b.body.position.y < 0.04; }
+  pocketBlock() { // 집게 사이에 블록이 둘이면 가운데(스트라이커 앞)에 가까운 것
+    let best = null, bz = 9; for (const b of BLOCKS) { if (b.out || b.held || !this.inPocket(b)) continue; const lz = Math.abs(this.toLocal(b.body.position.x, b.body.position.z)[1]); if (lz < bz) { bz = lz; best = b; } } return best; }
+  // 바퀴 제어 (조종 시뮬레이터와 같은 D패드 방식): 좌/우 바퀴 목표(−1 ~ 1)
+  drive(l, r, dt) {
+    const vL = l * DR.vmax, vR = r * DR.vmax, tv = (vL + vR) / 2, tw = (vR - vL) / DR.W * 0.9;
+    const acc = (tv === 0 && tw === 0) ? 12 : 4;
+    this.v = approach(this.v, tv, acc * dt); this.w = approach(this.w, tw, acc * 6 * dt);
+    const f = this.fwd(); let nx = this.x + f[0] * this.v * dt, nz = this.z + f[1] * this.v * dt; const nth = wrapA(this.th + this.w * dt);
+    nx = clamp(nx, -C.inX + 0.09, C.inX - 0.09); nz = clamp(nz, -C.inZ + 0.09, C.inZ - 0.09);
+    this.vel = [(nx - this.x) / dt, (nz - this.z) / dt, this.w];
+    this.x = nx; this.z = nz; this.th = nth;
+  }
+  setGrip(on) {
+    if (on === this.grip) return; this.grip = on;
+    if (on) { const b = this.pocketBlock(); if (b) { this.held = b; b.held = this; b.body.type = CANNON.Body.KINEMATIC; b.body.velocity.setZero(); b.body.angularVelocity.setZero(); } }
+    else this.release(0);
+  }
+  release(v) {
+    const b = this.held || this.pocketBlock(); this.held = null; if (!b) return null;
+    b.held = null; b.body.type = CANNON.Body.DYNAMIC; b.body.mass = C.block.mass; b.body.updateMassProperties();
+    const f = this.fwd(); b.body.velocity.set(f[0] * v + (this.vel ? this.vel[0] : 0) * 0.5, 0, f[1] * v + (this.vel ? this.vel[1] : 0) * 0.5); b.body.angularVelocity.setZero(); b.body.wakeUp();
+    return b;
+  }
+  strike() { // 스트라이커: 모은 힘만큼 블록을 앞으로 (던지기가 아닌 바닥을 미끄러지게)
+    const v = DR.vStrikeMin + (DR.vStrikeMax - DR.vStrikeMin) * this.charge; this.charge = 0; this.charging = false; this.strikeT = 0.18;
+    const b = this.release(v); if (b) { b.played = b.played || false; beep(320 + v * 120, 0.08, 0.05, 'square'); } else beep(200, 0.05, 0.03);
+    this.grip = false; return b;
+  }
+  step(dt) {
+    if (this.charging) this.charge = Math.min(1, this.charge + dt / 1.2);
+    if (this.strikeT > 0) this.strikeT -= dt;
+    if (this.held) { // 집은 블록은 집게 사이에
+      const [px, pz] = this.local(DR.L / 2 + C.block.s / 2 + 0.006, 0), b = this.held.body, op = b.position.clone();
+      b.position.set(px, C.block.s / 2 + 0.0005, pz); b.quaternion.setFromEuler(0, this.th, 0); b.velocity.set((px - op.x) / dt, 0, (pz - op.z) / dt);
+    }
+    this.sync(dt);
+  }
+  sync(dt) {
+    this.m.g.position.set(this.x, 0, this.z); this.m.g.rotation.y = this.th;
+    for (const { a, s } of this.m.arms) a.rotation.y = s * (this.grip ? 0.18 : -0.25);
+    const ext = this.strikeT > 0 ? 0.03 : this.charging ? -0.012 * this.charge : 0; this.m.striker.position.x = DR.L / 2 + 0.004 + ext;
+    this.body.position.set(this.x, 0, this.z); this.body.quaternion.setFromEuler(0, this.th, 0);
+    if (this.vel) { this.body.velocity.set(this.vel[0], 0, this.vel[1]); this.body.angularVelocity.set(0, this.vel[2], 0); }
+  }
+  wheels() { return [[0.05, 0.09], [0.05, -0.09], [-0.05, 0.09], [-0.05, -0.09]].map(([a, b]) => this.local(a, b)); }
+  allInGrey() { return this.wheels().every(([x]) => Math.abs(x) < C.grey); }
+}
+
+/* ---------------- 휴머노이드 (MAX-E1) ---------------- */
+let HB = null;
+if (DIV === 'humanoid') HB = await import('../humanoid/maxe1.js');
+const KICK = { vMin: 0.6, vMax: 2.8, lx: 0.112, lz: 0.05 }; // 킥: RB/LB를 누르고 있는 동안 힘을 모으고 떼면 참 · 차는 발끝 앞 블록 자리(로컬)
+class Humanoid {
+  constructor(team) {
+    this.team = team; const s = team ? 1 : -1;
+    this.bot = new HB.Bot(team ? 0 : 1, { name: team ? '상대' : '나', scene, groundY: 0, x: s * 1.37, z: 0, th: team ? Math.PI : 0 });
+    this.body = new CANNON.Body({ mass: 0, type: CANNON.Body.KINEMATIC, material: mBot, shape: new CANNON.Cylinder(0.055, 0.055, 0.3, 12) }); world.addBody(this.body);
+    this.feet = ['Rf', 'Lf'].map(k => { const b = new CANNON.Body({ mass: 0, type: CANNON.Body.KINEMATIC, material: mBot, shape: new CANNON.Sphere(0.016) }); b.allowSleep = false; world.addBody(b); return { k, b }; });
+    this.body.allowSleep = false;
+    this.reset();
+  }
+  reset() { const s = this.team ? 1 : -1; this.bot.reset(s * 1.37, 0, this.team ? Math.PI : 0); this.kickPow = 1; this.kickDone = false; this.charge = 0; this.charging = null; this.sync(1 / 60); }
+  get x() { return this.bot.x; } get z() { return this.bot.z; } get th() { return this.bot.th; }
+  fwd() { return this.bot.fwd(); }
+  step(dt) {
+    const b = this.bot; b.step(dt);
+    b.x = clamp(b.x, -C.inX + 0.06, C.inX - 0.06); b.z = clamp(b.z, -C.inZ + 0.06, C.inZ - 0.06);
+    // 킥: 차는 발끝이 블록에 닿으면 앞으로 미끄러지게
+    const m = b.mot;
+    if (m && m.kind === 'atk' && HB.ATK[m.idx] && HB.ATK[m.idx].kick && !this.kickDone) {
+      const A = HB.ATK[m.idx], p = b.progress;
+      if (p > A.win[0] && p < A.win[1]) {
+        const toe = b.limb(A.limb), c = Math.cos(b.th), s = Math.sin(b.th), loc = (x, z) => [(x - b.x) * c - (z - b.z) * s, (x - b.x) * s + (z - b.z) * c], [tx, tz] = loc(toe.x, toe.z);
+        let hit = null, hz = 9;
+        for (const bl of BLOCKS) {
+          if (bl.out || bl.held) continue; const q = bl.body.position, [qx, qz] = loc(q.x, q.z);
+          // 발끝이 앞으로 뻗으며 쓸고 지나가는 자리: 블록 뒷면이 발끝 앞 1.2 cm 안 · 옆으로 발 폭 안 (여럿이면 발끝 정면에 가까운 블록)
+          if (qx - C.block.s / 2 < tx + 0.012 && qx > tx - 0.03 && Math.abs(qz - tz) < 0.035 && toe.y < 0.07 && Math.abs(qz - tz) < hz) { hit = bl; hz = Math.abs(qz - tz); }
+        }
+        if (hit) {
+          const f = this.fwd(), v = (KICK.vMin + (KICK.vMax - KICK.vMin) * this.kickPow) * (0.97 + Math.random() * 0.06);
+          hit.body.velocity.set(f[0] * v, 0, f[1] * v); hit.body.angularVelocity.setZero(); hit.body.wakeUp(); this.kickDone = true; beep(300 + v * 100, 0.08, 0.05);
+        }
+      }
+    }
+    if (!m || m.kind !== 'atk') this.kickDone = false;
+    if (this.charging) this.charge = Math.min(1, this.charge + dt / 1.2);
+    this.sync(dt);
+  }
+  kick(idx, pow) { if (this.bot.attack(idx)) { this.kickPow = pow; this.kickDone = false; beep(500, 0.04, 0.03); } this.charge = 0; this.charging = null; }
+  sync(dt) {
+    const b = this.bot; b.sync();
+    const op = this.body.position.clone(); this.body.position.set(b.x, 0.15, b.z); this.body.velocity.set((b.x - op.x) / dt, 0, (b.z - op.z) / dt);
+    const kickFoot = b.mot && b.mot.kind === 'atk' && HB.ATK[b.mot.idx] && HB.ATK[b.mot.idx].limb;
+    for (const f of this.feet) { f.b.collisionResponse = f.k !== kickFoot; const p = b.limb(f.k), o = f.b.position.clone(); f.b.position.set(p.x, Math.max(0.017, p.y), p.z); f.b.velocity.set((p.x - o.x) / dt, 0, (p.z - o.z) / dt); }
+  }
+  allInGrey() { const b = this.bot, pts = ['Rt', 'Re', 'Lt', 'Le'].map(k => b.limb(k)); return pts.every(p => Math.abs(p.x) < C.grey); }
+}
+
+/* ---------------- 입력 ---------------- */
+const KEY = new Set(); const EDGE = [];
+addEventListener('keydown', e => { if (!KEY.has(e.code)) keyEdge(e.code, true); KEY.add(e.code); if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code)) e.preventDefault(); });
+addEventListener('keyup', e => { KEY.delete(e.code); keyEdge(e.code, false); }); addEventListener('blur', () => KEY.clear());
+function keyEdge(c, down) {
+  if (!down) return;
+  const map = { KeyE: 'A', KeyO: 'RB', KeyL: 'LB' }; if (map[c]) EDGE.push(map[c]);
+  if (c === 'KeyC') cycleCam(); if (c === 'KeyP') togglePause(); if (c === 'KeyH') $('#help').classList.toggle('on');
+}
+let padPrev = [];
+const getPad = () => { const ps = navigator.getGamepads ? [...navigator.getGamepads()].filter(Boolean) : []; return ps[0] || null; };
+function readInput() {
+  const IN = { up: 0, dn: 0, lf: 0, rg: 0, lt: 0, rt: 0, rb: 0, lb: 0, pad: false, edges: EDGE.splice(0) };
+  const p = getPad();
+  if (p) {
+    IN.pad = true; const B = i => !!(p.buttons[i] && (p.buttons[i].pressed || p.buttons[i].value > 0.5));
+    IN.up = B(12); IN.dn = B(13); IN.lf = B(14); IN.rg = B(15); IN.lt = (p.buttons[6] || {}).value || 0; IN.rt = (p.buttons[7] || {}).value || 0; IN.rb = B(5); IN.lb = B(4);
+    const now = p.buttons.map(b => b.pressed), e = i => now[i] && !padPrev[i];
+    if (e(0)) IN.edges.push('A'); if (e(5)) IN.edges.push('RB'); if (e(4)) IN.edges.push('LB'); if (e(3) || e(8)) cycleCam(); if (e(9)) togglePause();
+    padPrev = now;
+  }
+  const k = c => KEY.has(c);
+  if (k('KeyW')) IN.up = 1; if (k('KeyS')) IN.dn = 1; if (k('KeyA')) IN.lf = 1; if (k('KeyD')) IN.rg = 1;
+  if (k('ShiftLeft') || k('ShiftRight')) IN.rt = 1;
+  if (k('KeyO')) IN.rb = 1; if (k('KeyL')) IN.lb = 1;
+  if (DIV === 'drive') { if (k('Space')) IN.lt = 1; } else { if (k('KeyQ')) { IN.lt = 1; IN.lf = 1; } if (k('KeyZ')) { IN.lt = 1; IN.rg = 1; } }
+  return IN;
+}
+// 드라이브: 조종 시뮬레이터(MRC)와 같은 D패드 매핑 · LT는 누르는 동안 스트라이커 힘 모으기 → 떼면 치기 · A 집게
+function controlDrive(r, IN, dt) {
+  const pw = IN.pw || (0.5 + 0.5 * clamp(IN.rt, 0, 1)); r.power = pw;
+  let l = 0, rr = 0;
+  if (IN.up && IN.rg) { l = 1; rr = 0.5; } else if (IN.up && IN.lf) { l = 0.5; rr = 1; } else if (IN.dn && IN.rg) { l = -1; rr = -0.5; } else if (IN.dn && IN.lf) { l = -0.5; rr = -1; }
+  else if (IN.up) { l = rr = 1; } else if (IN.dn) { l = rr = -1; } else if (IN.rg) { l = 1; rr = -1; } else if (IN.lf) { l = -1; rr = 1; }
+  if (!(IN.up && (IN.lf || IN.rg)) && !(IN.dn && (IN.lf || IN.rg))) { l *= pw; rr *= pw; }
+  r.drive(l, rr, dt);
+  const lt = IN.lt > 0.5;
+  if (lt && !r.charging && !r.ltWas) { r.charging = true; r.charge = 0; }
+  if (!lt && r.charging) r.strike();
+  r.ltWas = lt;
+  for (const e of IN.edges) if (e === 'A') r.setGrip(!r.grip);
+}
+// 휴머노이드: 배틀과 같은 걷기·옆걸음·돌기 · RB/LB 킥 (RT를 누른 채 차면 세게)
+function controlHumanoid(h, IN) {
+  const b = h.bot;
+  // RB/LB: 누르고 있으면 힘 모으기 → 떼면 킥 (오른발 121 · 왼발 120)
+  if (!h.charging && !b.fallen && !b.busy) { if (IN.rb) h.charging = 'R'; else if (IN.lb) h.charging = 'L'; if (h.charging) { h.charge = 0; b.stopWalk(); } }
+  if (h.charging === 'R' && !IN.rb) h.kick(121, h.charge); else if (h.charging === 'L' && !IN.lb) h.kick(120, h.charge);
+  if (h.charging) return;
+  if (b.fallen) { if (!b.getup && b.fallT > 1.0) b.standUp(); return; }
+  if (b.busy) return;
+  const fast = IN.rt > 0.5 && false, fwd = (IN.up ? 1 : 0) - (IN.dn ? 1 : 0), side = (IN.rg ? 1 : 0) - (IN.lf ? 1 : 0);
+  if (fwd && !side) { b.walkCtl(fwd, fast); return; }
+  b.stopWalk(); if (b.walk) return;
+  if (fwd && side) b.repeatMove(fwd > 0 ? (side > 0 ? 136 : 137) : (side > 0 ? 138 : 139));
+  else if (side && IN.lt > 0.5) b.repeatMove(side > 0 ? 133 : 132);
+  else if (side) b.repeatMove(side > 0 ? 140 : 141);
+}
+
+/* ---------------- 가상 상대 ---------------- */
+const AIP = (() => { const s = LEVEL; return { speed: 0.55 + 0.45 * s, aim: (7 - 6 * s) * Math.PI / 180, pow: 0.22 - 0.18 * s, takeout: s > 0.4 ? 0.15 + 0.5 * (s - 0.4) : 0, pause: 1.1 - 0.8 * s, lat: 0.03 - 0.025 * s }; })();
+const AI = { st: 'pick', blk: null, tgt: null, t: 0, wait: 0 };
+const houseD = b => Math.hypot(b.body.position.x, b.body.position.z);
+function aiChoose(r) {
+  const mine = BLOCKS.filter(b => b.team === r.team && !b.played && !b.out && !b.held && Math.abs(b.body.position.x) > C.zoneLine);
+  if (!mine.length) return null;
+  // 로봇에서 가까운 블록부터
+  mine.sort((a, b) => Math.hypot(a.body.position.x - r.x, a.body.position.z - r.z) - Math.hypot(b.body.position.x - r.x, b.body.position.z - r.z));
+  const blk = mine[0];
+  let tgt = { x: (Math.random() * 2 - 1) * 0.02, z: (Math.random() * 2 - 1) * 0.02, extra: 0, take: false };
+  // 테이크아웃: 상대 블록이 하우스 안쪽에 있고 내 블록이 그보다 멀면
+  const foe = BLOCKS.filter(b => b.team !== r.team && !b.out && houseD(b) < 0.16).sort((a, b) => houseD(a) - houseD(b))[0];
+  const myBest = BLOCKS.filter(b => b.team === r.team && !b.out && b.played).map(houseD).sort((a, b) => a - b)[0] ?? 9;
+  if (foe && houseD(foe) < myBest && Math.random() < AIP.takeout) tgt = { x: foe.body.position.x, z: foe.body.position.z, extra: 0.25, take: true };
+  else { // 가는 길에 멈춘 블록이 있으면 옆으로 비켜 겨눔 (초록 · 주황 안쪽)
+    const bx = blk.body.position.x, bz = blk.body.position.z;
+    const clear = (tx, tz) => BLOCKS.every(o => { if (o === blk || o.out || o.held) return true; const px = o.body.position.x - bx, pz = o.body.position.z - bz, dx = tx - bx, dz = tz - bz, L2 = dx * dx + dz * dz, t = (px * dx + pz * dz) / L2; if (t < 0.05 || t > 1.1) return true; return Math.hypot(px - t * dx, pz - t * dz) > 0.045; });
+    if (!clear(tgt.x, tgt.z)) for (const oz of [0.05, -0.05, 0.1, -0.1]) if (clear(0, oz)) { tgt = { x: 0, z: oz, extra: 0, take: false }; break; }
+  }
+  return { blk, tgt };
+}
+function aiDrive(r, dt) {
+  AI.t += dt;
+  const IN = { up: 0, dn: 0, lf: 0, rg: 0, lt: 0, rt: 0, edges: [] };
+  const goTo = (tx, tz, slow) => { // 차동 구동 조향: 크게 틀어져 있으면 제자리 회전
+    const e = wrapA(Math.atan2(-(tz - r.z), tx - r.x) - r.th), d = Math.hypot(tx - r.x, tz - r.z);
+    if (Math.abs(e) > 0.35) { if (e > 0) IN.lf = 1; else IN.rg = 1; } else { IN.up = 1; if (e > 0.06) IN.lf = 1; else if (e < -0.06) IN.rg = 1; }
+    IN.rt = slow ? 0 : AIP.speed > 0.75 ? 1 : 0; return d;
+  };
+  if (AI.wait > 0) { AI.wait -= dt; controlDrive(r, IN, dt); return; }
+  if (AI.st === 'pick') {
+    const c = aiChoose(r); if (!c) { controlDrive(r, IN, dt); return; }
+    AI.blk = c.blk; AI.tgt = c.tgt; AI.st = 'behind'; AI.t = 0;
+  }
+  const b = AI.blk; if (!b || b.out || b.played) { AI.st = 'pick'; AI.blk = null; controlDrive(r, IN, dt); return; }
+  const bx = b.body.position.x, bz = b.body.position.z, dx = AI.tgt.x - bx, dz = AI.tgt.z - bz, dl = Math.hypot(dx, dz), ux = dx / dl, uz = dz / dl;
+  const aimTh = Math.atan2(-uz, ux);
+  if (AI.st === 'behind') { // 블록 뒤(쏘는 방향 반대쪽)로
+    const d = goTo(bx - ux * 0.2, bz - uz * 0.2, false);
+    if (d < 0.05) IN.pw = 0.3; // 가까우면 천천히
+    if (d < 0.015) { AI.st = 'align'; AI.t = 0; }
+    if (AI.t > 8) { AI.st = 'pick'; b.played = true; } // 막히면 그 블록은 건너뜀
+  } else if (AI.st === 'align') { // 겨누기 (실력만큼 오차)
+    if (!AI.aimErr && AI.aimErr !== 0) AI.aimErr = (Math.random() * 2 - 1) * AIP.aim;
+    // 블록이 로봇 가운데(집게 사이)에 오도록 블록 쪽을 바라봄
+    const bear = Math.atan2(-(bz - r.z), bx - r.x), e = wrapA(bear - r.th);
+    if (Math.abs(e) > 0.025) { IN.pw = 0.3; if (e > 0) IN.lf = 1; else IN.rg = 1; } else { AI.st = 'push'; AI.t = 0; }
+    if (AI.t > 3) { AI.st = 'push'; AI.t = 0; }
+  } else if (AI.st === 'push') { // 천천히 다가가 집게 사이에 넣기
+    IN.up = 1; IN.pw = 0.3; { const e = wrapA(Math.atan2(-(bz - r.z), bx - r.x) - r.th); if (Math.hypot(bx - r.x, bz - r.z) > 0.13) { if (e > 0.04) IN.lf = 1; else if (e < -0.04) IN.rg = 1; } }
+    if (r.inPocket(b) && r.toLocal(bx, bz)[0] < DR.L / 2 + C.block.s / 2 + 0.03) { r.v = 0; r.w = 0; r.setGrip(true); if (r.held === b) { AI.st = 'reverse'; AI.t = 0; } else r.setGrip(false); }
+    if (AI.t > 1.6) { AI.st = 'behind'; AI.t = 0; }
+  } else if (AI.st === 'reverse') { // 집게로 잡고 줄에서 빠져나옴 (옆 블록은 두고)
+    IN.dn = 1; IN.pw = 0.4; if (AI.t > 0.45) { AI.st = 'carry'; AI.t = 0; }
+  } else if (AI.st === 'carry') { // 쏘는 자리로 옮김
+    const s = r.team ? 1 : -1, lx = s * 0.98, lz = clamp(AI.lz ?? (AI.lz = clamp(bz, -0.2, 0.2) * 0.5), -0.2, 0.2);
+    const d = goTo(lx, lz, true); IN.pw = d < 0.08 ? 0.3 : 0.5;
+    if (d < 0.03 || AI.t > 8) { AI.st = 'aim'; AI.t = 0; AI.lz = undefined; }
+  } else if (AI.st === 'aim') { // 하우스 쪽으로 겨누기 (실력만큼 오차)
+    const e = wrapA(aimTh + AI.aimErr - r.th);
+    if (Math.abs(e) > 0.02 && AI.t < 3) { IN.pw = 0.3; if (e > 0) IN.lf = 1; else IN.rg = 1; }
+    else { // 거리만큼 힘을 한 번 정함: v = √(2μgd) × (1 ± 오차)
+      const vNeed = Math.sqrt(2 * C.mu * 9.81 * (dl + AI.tgt.extra)) * (1 + (Math.random() * 2 - 1) * AIP.pow) * (AI.tgt.take ? 1.25 : 1.0);
+      AI.want = clamp((vNeed - DR.vStrikeMin) / (DR.vStrikeMax - DR.vStrikeMin), 0, 1);
+      AI.st = 'shoot'; AI.t = 0; r.v = 0; r.w = 0; r.charging = true; r.charge = 0; r.ltWas = true; controlDriveKeepCharge(r, dt); return;
+    }
+  } else if (AI.st === 'shoot') { // 힘 모으고 치기
+    if (r.charge >= AI.want) { r.strike(); b.played = true; AI.st = 'back'; AI.t = 0; AI.aimErr = undefined; AI.wait = 0; }
+    else { r.charging = true; controlDriveKeepCharge(r, dt); return; }
+  } else if (AI.st === 'back') { IN.dn = 1; if (AI.t > 0.6) { AI.st = 'pick'; AI.wait = AIP.pause; } }
+  aiGuard(r, IN); controlDrive(r, IN, dt);
+}
+function aiGuard(r, IN) { // 가상 상대는 회색 구역 앞에서 멈춤
+  const s = r.team ? 1 : -1, f = r.fwd(), front = Math.min(...r.wheels().map(([x]) => s * x));
+  if (front < C.grey + 0.06 && IN.up && f[0] * s < 0) { IN.up = 0; IN.lf = IN.rg = 0; }
+}
+function controlDriveKeepCharge(r, dt) { r.drive(0, 0, dt); r.ltWas = true; }
+function aiHumanoid(h, dt) { // 블록 뒤로 걸어가 겨누고 → 블록이 오른발 앞(로컬 x 12.5 cm · z 5 cm)에 오게 맞춘 뒤 → 거리만큼 힘을 모아 오른발 킥
+  AI.t += dt; const b = h.bot; const IN = { up: 0, dn: 0, lf: 0, rg: 0, lt: 0, rt: 0, rb: 0, lb: 0, edges: [] };
+  if (h.charging) { IN.rb = h.charge < AI.want ? 1 : 0; controlHumanoid(h, IN); return; }
+  if (b.busy || b.fallen) { controlHumanoid(h, IN); return; }
+  if (AI.wait > 0) { AI.wait -= dt; controlHumanoid(h, IN); return; }
+  if (AI.st === 'pick' || !AI.blk || AI.blk.out || AI.blk.played) { const c = aiChoose(h); if (!c) { controlHumanoid(h, IN); return; } AI.blk = c.blk; AI.tgt = c.tgt; AI.st = 'go'; AI.t = 0; AI.aimErr = (Math.random() * 2 - 1) * AIP.aim; }
+  const bl = AI.blk, bx = bl.body.position.x, bz = bl.body.position.z, dl = Math.hypot(AI.tgt.x - bx, AI.tgt.z - bz);
+  const aimTh = Math.atan2(-(AI.tgt.z - bz), AI.tgt.x - bx) + AI.aimErr, c = Math.cos(aimTh), s = Math.sin(aimTh);
+  const px = bx - (KICK.lx * c + KICK.lz * s), pz = bz - (-KICK.lx * s + KICK.lz * c); // 킥 자리
+  const sx = px - c * 0.10, sz = pz + s * 0.10;                                           // 그보다 10 cm 뒤 (다가갈 자리)
+  const turnTo = (th, tol) => { const e = wrapA(th - b.th); if (Math.abs(e) > tol) { if (e > 0) IN.lf = 1; else IN.rg = 1; return false; } return true; };
+  if (AI.st === 'go') {
+    const d = Math.hypot(sx - b.x, sz - b.z);
+    if (d > 0.04) { if (turnTo(Math.atan2(-(sz - b.z), sx - b.x), 0.25)) IN.up = 1; } else AI.st = 'aim';
+    if (AI.t > 30) { bl.played = true; AI.st = 'pick'; }
+  } else if (AI.st === 'aim') {
+    // 걷기 · 돌기 · 옆걸음은 한 번에 8 cm · 18° · 5 cm씩 움직이므로, 맞는 자리에 오면 동작을 끊고 차렷(101)으로
+    const cc = Math.cos(b.th), ss = Math.sin(b.th), lx = (bx - b.x) * cc - (bz - b.z) * ss, lz = (bx - b.x) * ss + (bz - b.z) * cc, eh = wrapA(aimTh - b.th);
+    const mi = b.mot ? b.mot.idx : 0, cut = () => { b.walk = null; b.play(101); };
+    if ((mi === 140 || mi === 141) && Math.abs(eh) < 0.025) cut();
+    else if ((mi === 132 || mi === 133) && Math.abs(lz - KICK.lz) < 0.01) cut();
+    else if (mi >= 150 && mi <= 154 && lx <= KICK.lx + 0.015) cut();
+    else if (mi >= 155 && mi <= 159 && lx >= KICK.lx - 0.005) cut();
+    if (b.walk || (b.mot && b.mot.idx !== 101)) { /* 동작 중 */ }
+    else if (turnTo(aimTh, 0.03)) { // 블록을 로컬 좌표로 보고 앞뒤 · 옆 맞추기
+      if (lz - KICK.lz > 0.022) { IN.lt = 1; IN.rg = 1; } else if (lz - KICK.lz < -0.022) { IN.lt = 1; IN.lf = 1; }
+      else if (lx > KICK.lx + 0.022) IN.up = 1; else if (lx < KICK.lx - 0.022) IN.dn = 1;
+      else { // 거리만큼 힘: v = √(2μgd) × (1 ± 오차)
+        const v = Math.sqrt(2 * C.mu * 9.81 * (dl + AI.tgt.extra)) * (1 + (Math.random() * 2 - 1) * AIP.pow) * (AI.tgt.take ? 1.25 : 1);
+        AI.want = clamp((v - KICK.vMin) / (KICK.vMax - KICK.vMin), 0, 1); IN.rb = 1; bl.played = true; AI.st = 'pick'; AI.wait = AIP.pause + 0.8;
+      }
+    }
+    if (AI.t > 15) { bl.played = true; AI.st = 'pick'; } // 못 맞추면 다른 블록으로
+  }
+  controlHumanoid(h, IN);
+}
+
+/* ---------------- 경기 ---------------- */
+const robots = DIV === 'drive' ? [new Drive(0), new Drive(1)] : [new Humanoid(0), new Humanoid(1)];
+const me = robots[0], op = robots[1];
+const G = { phase: 'idle', clock: C.time, t: 0, paused: false, called: -1, result: null, dq: -1, endT: 0, why: '' };
+let AC = null; function beep(f = 900, d = 0.08, v = 0.05, type = 'square') { try { AC = AC || new AudioContext(); const o = AC.createOscillator(), g = AC.createGain(); o.type = type; o.frequency.value = f; g.gain.value = v; o.connect(g); g.connect(AC.destination); o.start(); g.gain.exponentialRampToValueAtTime(0.0001, AC.currentTime + d); o.stop(AC.currentTime + d); } catch (e) {} }
+function banner(t, d = 1.6) { const el = $('#banner'); el.textContent = t; el.classList.add('show'); clearTimeout(banner.t); banner.t = setTimeout(() => el.classList.remove('show'), d * 1000); }
+function setup() {
+  clearBlocks();
+  for (const team of [0, 1]) { const s = team ? 1 : -1; for (let i = 0; i < C.nBlocks; i++) makeBlock(team, s * C.rowX, -0.18 + i * 0.04); }
+  for (const r of robots) r.reset();
+  Object.assign(AI, { st: 'pick', blk: null, tgt: null, t: 0, wait: 1.2 - LEVEL * 0.6, aimErr: undefined });
+  Object.assign(G, { phase: 'count', clock: C.time, t: 0, called: -1, result: null, dq: -1, endT: 0, why: '' });
+  banner('3', 0.8); beep(600, 0.1);
+}
+function score() {
+  const out = [{ g: 0, o: 0, y: 0, c: 0, pts: 0, left: 0 }, { g: 0, o: 0, y: 0, c: 0, pts: 0, left: 0 }];
+  for (const b of BLOCKS) {
+    const S = out[b.team];
+    if (!b.played && !b.out) S.left++;
+    if (b.out || b.held || b.body.position.y > 0.03) continue;
+    const d = Math.hypot(b.body.position.x, b.body.position.z) - C.block.contact / 2; // 선에 걸치면 높은 구역
+    if (d <= 0.015) { S.c++; S.pts += 50; } else if (d <= 0.075) { S.g++; S.pts += 5; } else if (d <= 0.15) { S.o++; S.pts += 3; } else if (d <= 0.25) { S.y++; S.pts += 1; }
+  }
+  return out;
+}
+function decide(sc) {
+  if (G.dq >= 0) return [1 - G.dq, `${TEAMN[G.dq]} 실격 — 회색 구역 진입`];
+  if (G.called >= 0) return [G.called, '콜드게임 — 검정 중심에 닿음'];
+  for (const [k, n] of [['g', '초록'], ['o', '주황'], ['y', '노랑']]) if (sc[0][k] !== sc[1][k]) return [sc[0][k] > sc[1][k] ? 0 : 1, `${n} 구역 블록 수 ${sc[0][k]} : ${sc[1][k]}`];
+  return [-1, '하우스 블록 수가 같음'];
+}
+function finish(why) {
+  if (G.phase === 'end' || G.phase === 'settle') return; G.phase = 'settle'; G.endT = 0; G.why = why;
+  for (const r of robots) if (r.held) r.release(0);
+  banner(why, 1.6);
+}
+function finalize() {
+  G.phase = 'end'; const sc = score(), [w, why] = decide(sc); G.result = { w, why, sc };
+  const res = w < 0 ? 'draw' : w === 0 ? 'win' : 'loss';
+  banner((res === 'win' ? '승리!' : res === 'loss' ? '패배' : '무승부') + '\n' + why, 4);
+  const detail = `로봇 컬링 · ${why} · 나 초록 ${sc[0].g}·주황 ${sc[0].o}·노랑 ${sc[0].y} / 상대 초록 ${sc[1].g}·주황 ${sc[1].o}·노랑 ${sc[1].y}`;
+  setTimeout(() => { post({ type: 'wrlsim:result', result: res, score: [sc[0].pts, sc[1].pts], detail }); if (!EMBED) showEnd(res, sc, why); }, 2600);
+}
+function togglePause() { if (G.phase === 'play' || G.phase === 'count') { G.paused = !G.paused; banner(G.paused ? '일시정지' : '재개', 0.8); } }
+
+const DT = 1 / 240; let acc = 0;
+function tick(dt, IN) {
+  G.t += dt;
+  if (G.phase === 'count') { if (G.t >= 3) { G.phase = 'play'; banner('시작!', 0.9); beep(880, 0.3, 0.06, 'sine'); } else if (Math.floor(G.t - dt) !== Math.floor(G.t)) { banner(String(3 - Math.floor(G.t)), 0.8); beep(600, 0.1); } }
+  const live = G.phase === 'play';
+  if (live) {
+    if (DIV === 'drive') { controlDrive(me, IN, dt); aiDrive(op, dt); } else { controlHumanoid(me, IN); aiHumanoid(op, dt); }
+  } else if (DIV === 'drive') { for (const r of robots) r.drive(0, 0, dt); }
+  for (const r of robots) r.step(dt);
+  acc += dt; let n = 0; while (acc >= DT && n < 30) { world.step(DT); slideFriction(DT); acc -= DT; n++; } if (n >= 30) acc = 0;
+  for (const b of BLOCKS) {
+    const p = b.body.position;
+    if (!b.out && (Math.abs(p.x) > C.L / 2 || Math.abs(p.z) > C.W / 2 || p.y < -0.05)) { b.out = true; b.played = true; b.mesh.visible = false; world.removeBody(b.body); }
+    if (!b.played && Math.abs(p.x) < C.zoneLine) b.played = true;
+    if (live && !b.held && p.y > 0.05 && b.body.velocity.y > 0.2) banner('⚠ 블록을 던지면 안 됩니다', 1.2);
+  }
+  if (live) {
+    G.clock -= dt; if (G.clock <= 0) { G.clock = 0; finish('2분 종료'); }
+    // 실격: 드라이브는 바퀴 4개 모두, 휴머노이드는 두 발 모두 회색 구역 안
+    for (const r of robots) if (r.allInGrey()) { G.dq = r.team; finish(`${TEAMN[r.team]} — 회색 구역에 ${DIV === 'drive' ? '바퀴가 모두' : '두 발이 모두'} 들어감 (실격)`); }
+    // 콜드게임: 검정 중심에 닿은 채 멈춘 블록 (미끄러져 지나가는 건 제외)
+    for (const b of BLOCKS) if (!b.out && !b.held && b.body.position.y < 0.03 && b.body.velocity.length() < 0.02 && Math.hypot(b.body.position.x, b.body.position.z) <= 0.015 + C.block.contact / 2) { G.called = b.team; finish(`콜드게임! ${TEAMN[b.team]} 블록이 검정 중심에`); break; }
+    // 두 팀 모두 블록을 다 쓰고 모두 멈추면 끝
+    const sc = score(); if (G.phase === 'play' && sc[0].left === 0 && sc[1].left === 0 && !robots.some(r => r.held) && BLOCKS.every(b => b.out || b.body.velocity.length() < 0.01)) finish('두 팀 모두 블록을 다 씀');
+  }
+  if (G.phase === 'settle') { G.endT += dt; if (G.endT > 1.5 && BLOCKS.every(b => b.out || b.body.velocity.length() < 0.01) || G.endT > 4) finalize(); }
+}
+
+/* ---------------- 카메라 ---------------- */
+const CAMS = ['oblique', 'end', 'top', 'follow', 'free'], CAMNAME = { oblique: '비스듬히', end: '내 진영 뒤', top: '탑뷰', follow: '내 로봇 추적', free: '자유 (마우스)' };
+let camMode = 'oblique', camSnap = true; const camP = new THREE.Vector3(), camT = new THREE.Vector3();
+function cycleCam() { camMode = CAMS[(CAMS.indexOf(camMode) + 1) % CAMS.length]; controls.enabled = camMode === 'free'; if (camMode === 'free') controls.target.set(0, 0, 0); camSnap = true; $('#cam').textContent = '📷 ' + CAMNAME[camMode] + ' (C · Y)'; }
+function updateCam(dt) {
+  if (camMode === 'free') { controls.update(); return; }
+  const T = new THREE.Vector3(), Pp = new THREE.Vector3();
+  if (camMode === 'oblique') { T.set(-0.25, 0, 0); Pp.set(-2.0, 1.45, 1.35); }
+  else if (camMode === 'end') { T.set(0.1, 0, 0); Pp.set(-2.55, 0.95, 0); }
+  else if (camMode === 'top') { T.set(0, 0, 0); Pp.set(0, 3.3, 0.25); }
+  else { const f = me.fwd(); T.set(me.x + f[0] * 0.6, 0, me.z + f[1] * 0.6); Pp.set(me.x - f[0] * 0.55, 0.5, me.z - f[1] * 0.55); }
+  const k = camSnap ? 1 : 1 - Math.exp(-dt * 4); camSnap = false; camP.lerp(Pp, k); camT.lerp(T, k); camera.position.copy(camP); camera.lookAt(camT);
+}
+
+/* ---------------- 화면 ---------------- */
+const fmt = s => { s = Math.max(0, Math.ceil(s)); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); };
+let last = performance.now(), hudT = 0;
+function frame(now) {
+  const dt = Math.min(0.05, (now - last) / 1000); last = now;
+  const IN = readInput();
+  if (!G.paused && G.phase !== 'idle') tick(dt, IN);
+  for (const b of BLOCKS) { b.mesh.position.copy(b.body.position); b.mesh.quaternion.copy(b.body.quaternion); }
+  updateCam(dt); renderer.render(scene, camera);
+  hudT += dt; if (hudT > 0.1) { hudT = 0; hud(IN); }
+  requestAnimationFrame(frame);
+}
+function hud(IN) {
+  const sc = score();
+  $('#sA').textContent = sc[0].pts; $('#sB').textContent = sc[1].pts;
+  $('#clock').textContent = fmt(G.clock);
+  $('#per').textContent = { idle: '대기', count: '준비', play: '경기 중', settle: '블록 멈추는 중', end: '경기 종료' }[G.phase] || '';
+  const row = (l, v) => `<div class="row"><span>${l}</span><b>${v}</b></div>`;
+  let h = row('남은 블록 (나 · 상대)', `${sc[0].left} · ${sc[1].left}`) + row('나: 초록·주황·노랑', `${sc[0].g} · ${sc[0].o} · ${sc[0].y}`) + row('상대: 초록·주황·노랑', `${sc[1].g} · ${sc[1].o} · ${sc[1].y}`);
+  if (DIV === 'drive') h += row('집게', me.held ? '블록 잡음' : me.grip ? '닫힘' : '열림') + row('주행 파워', Math.round(me.power * 100) + '%') + `<div class="row"><span>스트라이커 힘</span><b>${Math.round(me.charge * 100)}%</b></div><div class="bar"><i style="width:${me.charge * 100}%"></i></div>`;
+  else h += row('킥', 'RB 오른발 · LB 왼발 (누르고 있다 떼기)') + `<div class="row"><span>킥 힘</span><b>${Math.round(me.charge * 100)}%</b></div><div class="bar"><i style="width:${me.charge * 100}%"></i></div>`;
+  const near = DIV === 'drive' ? me.wheels().filter(([x]) => Math.abs(x) < C.grey).length : 0;
+  h += `<div class="msg">${G.phase === 'play' && near >= 2 ? `⚠ 바퀴 ${near}개가 회색 구역 — 4개 모두 들어가면 실격` : ''}</div>`;
+  $('#side').innerHTML = h;
+  $('#pad').classList.toggle('on', IN.pad); $('#padTxt').textContent = IN.pad ? '🎮 엑스박스 컨트롤러 연결됨' : '컨트롤러 없음 — 키보드 사용 (버튼을 한 번 누르면 연결)';
+}
+const KEYS = DIV === 'drive' ? [
+  ['D패드 ↑ / ↓', '전진 · 후진 (기본 50%)', 'W / S'], ['D패드 ← / →', '포인트 턴', 'A / D'], ['D패드 대각선', '스윙턴', 'W·S + A·D'], ['RT', '누르는 동안 파워 100%', 'Shift'],
+  ['A', '집게 닫기 / 열기 (블록을 잡고 다님)', 'E'], ['LT (누르고 있다가 떼기)', '스트라이커: 누르는 동안 힘을 모으고 떼면 블록을 칩니다', 'Space'], ['Y · View', '카메라', 'C'], ['Menu', '일시정지', 'P'],
+] : [
+  ['D패드 ↑ / ↓', '앞으로 · 뒤로 걷기 (150~154 / 155~159)', 'W / S'], ['D패드 ← / →', '제자리 돌기 (141 / 140)', 'A / D'], ['LT + D패드 ← / →', '옆걸음 (132 / 133)', 'Q / Z'], ['D패드 대각선', '대각선 걷기 (136~139)', 'W·S + A·D'],
+  ['RB / LB (누르고 있다가 떼기)', '오른발 킥 (121) / 왼발 킥 (120) — 누르는 동안 힘을 모으고 떼면 발끝으로 블록을 칩니다', 'O / L'], ['Y · View', '카메라', 'C'], ['Menu', '일시정지', 'P'],
+];
+const keyTable = `<table class="k">${KEYS.map(([a, b, k]) => `<tr><td>${a}</td><td>${b} <span style="color:#8d93b5">[${k}]</span></td></tr>`).join('')}</table>`;
+const RULES = `경기 2분 · 두 팀이 동시에 블록 10개씩 · 블록은 바닥을 미끄러지게 (던지기 금지) · 회색 구역에 블록을 보내 하우스(노랑 1 · 주황 3 · 초록 5 · 검정 50)에 · 검정 중심에 닿으면 즉시 승리(콜드게임) · 승부: 콜드게임 → 초록 수 → 주황 수 → 노랑 수 · 회색 구역에 ${DIV === 'drive' ? '바퀴 4개가 모두' : '두 발이 모두'} 들어가면 실격`;
+$('#help').innerHTML = `<b>🎮 엑스박스 컨트롤러</b> [키보드]${keyTable}<p style="color:#c9cde6;margin:8px 0 0">${RULES}</p><p style="color:#8d93b5;margin:6px 0 0">블록과 매트 사이 마찰 등 공식 규정에 없는 값은 가정입니다.</p>`;
+$('#helpBtn').addEventListener('click', () => $('#help').classList.toggle('on'));
+$('#card').innerHTML = `<h1>${esc(P.get('title') || ('로봇 컬링 — ' + (DIV === 'drive' ? '드라이브' : '휴머노이드') + ' · 연습'))}</h1>
+  <p>${DIV === 'drive' ? '바퀴 로봇(20 × 20 × 20 cm · 500 g 이내)을 조종해 집게로 블록을 잡고 스트라이커로 쳐서 하우스에 보냅니다.' : 'MAX-E1 휴머노이드를 조종해 블록 뒤로 걸어가 킥으로 블록을 하우스에 보냅니다.'}${P.get('opp') ? ` 상대 팀 <b style="color:#ffd25a">${esc(P.get('opp'))}</b>` : ''} · 상대 ${1 + Math.round(LEVEL * 4)}단계 / 5</p>
+  <div class="cols"><div>${keyTable}</div><div><p class="note">${RULES}</p><p class="note">나는 빨강 진영(왼쪽), 상대는 파랑 진영(오른쪽)에서 동시에 진행합니다. 상대 블록을 쳐내는 테이크아웃도 됩니다.</p></div></div>
+  <div style="display:flex;gap:8px;margin-top:12px"><button class="btn pri" id="startBtn">경기 시작</button></div>`;
+$('#startBtn').addEventListener('click', () => { $('#overlay').style.display = 'none'; setup(); view.focus(); });
+function showEnd(res, sc, why) {
+  const ov = $('#overlay'); ov.style.display = 'flex';
+  $('#card').innerHTML = `<h1>${res === 'win' ? '승리!' : res === 'loss' ? '패배' : '무승부'}</h1><p>${esc(why)}</p>
+    <table class="k res"><tr><td></td><td>초록 · 주황 · 노랑</td><td>기록 점수</td></tr><tr><td>나</td><td>${sc[0].g} · ${sc[0].o} · ${sc[0].y}</td><td>${sc[0].pts}</td></tr><tr><td>상대</td><td>${sc[1].g} · ${sc[1].o} · ${sc[1].y}</td><td>${sc[1].pts}</td></tr></table>
+    <div style="display:flex;gap:8px;margin-top:12px"><button class="btn pri" id="again">다시 하기</button></div>`;
+  $('#again').addEventListener('click', () => { ov.style.display = 'none'; setup(); view.focus(); });
+}
+$('#exit').addEventListener('click', () => post({ type: 'wrlsim:exit' })); if (!EMBED) $('#exit').style.display = 'none';
+renderer.domElement.addEventListener('pointerdown', () => view.focus());
+// 처음 화면에도 블록을 놓아 둠
+for (const team of [0, 1]) { const s = team ? 1 : -1; for (let i = 0; i < C.nBlocks; i++) makeBlock(team, s * C.rowX, -0.18 + i * 0.04); }
+$('#cam').textContent = '📷 ' + CAMNAME[camMode] + ' (C · Y)';
+resize(); requestAnimationFrame(frame);
+window.__cu = { G, me, op, robots, BLOCKS, C, tick, setup, score, AI, world, DR, slide: slideFriction };
+post({ type: 'wrlsim:ready' });
+</script>
+</body>
+</html>
