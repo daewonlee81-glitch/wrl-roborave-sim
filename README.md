@@ -16,7 +16,7 @@
 | WRL | MRC 축구 (Open·LEGO · Micro) | 조종형 | ✅ |
 | RoboRAVE | 스모봇 | 자율형 (SPIKE 워드블럭 코딩, 3판 2선승) | ✅ |
 | RoboRAVE | 라인 팔로잉 | 자율형 · 기록 도전 | 준비 중 |
-| RoboRAVE | 미들봇 | 자율형 · 기록 도전 | 준비 중 |
+| RoboRAVE | 미들봇 | 조종형 · 기록 도전 | 준비 중 |
 | RoboRAVE | 사커봇 RC | 조종형 | ✅ |
 
 규정 요약은 [worldrobotleague.net/rules](https://worldrobotleague.net/rules/)를 바탕으로 했습니다. 규정은 바뀔 수 있으니 대회 전 공식 페이지를 확인하세요.

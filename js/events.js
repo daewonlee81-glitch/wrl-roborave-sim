@@ -12,7 +12,7 @@ export const LEAGUES = {
   },
   roborave: {
     name: 'RoboRAVE', full: 'RoboRAVE Korea Open', sub: '로보레이브 코리아 오픈',
-    desc: '스모봇 · 라인 팔로잉 · 미들봇 · 사커봇 RC',
+    desc: '스모봇 · 라인 팔로잉 (자율형) · 미들봇 · 사커봇 RC (조종형)',
     color: '#ff8a4c', rulesUrl: 'https://worldrobotleague.net/rules/roborave/',
     events: ['sumo', 'line', 'middlebot', 'soccer_rc'],
   },
@@ -113,7 +113,7 @@ export const EVENTS = {
   },
   middlebot: {
     name: '미들봇', en: 'MiddleBot', league: 'roborave', icon: 'middlebot',
-    play: 'code', kind: 'record', engine: 'auto', status: 'soon',
+    play: 'control', kind: 'record', engine: 'middlebot', status: 'soon',
     src: 'https://worldrobotleague.net/rules/roborave/',
     rules: [
       '240 × 180 cm 경기장: 회색 출발 매트, 노란 분류 매트, 가운데 블록 구역, 신호등 기둥',
@@ -122,7 +122,7 @@ export const EVENTS = {
       '출발 구역으로 돌아와 버튼을 누르면 시간 정지 · 조건을 다 채우면 남은 시간도 점수',
       '팀마다 최대 5번 도전, 상위 3번 점수 합산 · MS·HS 디비전',
     ],
-    sim: ['라운드마다 가상 팀의 기록을 넘어야 다음 라운드로 올라갑니다'],
+    sim: ['조종형: 엑스박스 컨트롤러로 로봇을 몰아 기둥 버튼을 누르고 블록을 옮깁니다', '라운드마다 가상 팀의 기록을 넘어야 다음 라운드로 올라갑니다'],
   },
   soccer_rc: {
     name: '사커봇 RC', en: 'SoccerBot RC', league: 'roborave', icon: 'soccer_rc',
