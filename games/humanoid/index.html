@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>휴머노이드 배틀 — MAX-E1</title>
+<link rel="icon" href="../../favicon.svg" type="image/svg+xml">
+<style>
+:root{--bg:#1d2238;--panel:#262c47ee;--line:#454d74;--text:#eef0f8;--mute:#a7abc6;--gold:#ffd25a;--ok:#3fb950;--blue:#2f6bff;--red:#e5483b}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;overflow:hidden;background:var(--bg);color:var(--text);font:13px/1.45 system-ui,-apple-system,"Apple SD Gothic Neo","Malgun Gothic",sans-serif}
+#view{position:absolute;inset:0;outline:none}
+#view canvas{display:block;width:100%;height:100%}
+.btn{background:#3a4166;color:var(--text);border:1px solid var(--line);border-radius:8px;padding:6px 12px;cursor:pointer;font:inherit;font-weight:600}
+.btn:hover{background:#474f7a}
+.btn.pri{background:linear-gradient(90deg,#ffd25a,#ff8f5a);color:#2a1d05;border-color:transparent}
+#hud{position:absolute;top:10px;left:50%;transform:translateX(-50%);display:flex;filter:drop-shadow(0 2px 8px #0008);pointer-events:none}
+#hud .tm{padding:4px 16px;font-weight:800;font-size:26px;min-width:70px;text-align:center;font-variant-numeric:tabular-nums}
+#hud .tm small{display:block;font-size:11px;font-weight:600;opacity:.85;margin-top:-3px}
+#hud .a{background:var(--blue);border-radius:10px 0 0 10px}#hud .b{background:var(--red);border-radius:0 10px 10px 0}
+#hud .mid{background:#0d1117ee;padding:5px 16px;text-align:center;min-width:120px}
+#hud .clock{font-size:22px;font-weight:800;font-variant-numeric:tabular-nums}
+#hud .per{font-size:11px;color:var(--mute)}
+#exit{position:absolute;left:10px;top:10px;z-index:6}
+#side{position:absolute;left:10px;top:52px;width:250px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:9px 11px;font-size:12px;pointer-events:none}
+#side .row{display:flex;justify-content:space-between;gap:6px;border-top:1px solid #ffffff10;padding:3px 0}
+#side .row:first-child{border-top:0}
+#side .msg{margin-top:6px;color:var(--gold)}
+#count{position:absolute;top:40%;left:50%;transform:translate(-50%,-50%);font-size:clamp(70px,12vw,160px);font-weight:900;color:#fff;-webkit-text-stroke:3px #000;pointer-events:none;display:none;text-align:center;line-height:1}
+#count small{display:block;font-size:22px;-webkit-text-stroke:0;text-shadow:0 2px 8px #000}
+#banner{position:absolute;top:30%;left:50%;transform:translate(-50%,-50%);font-size:clamp(22px,3vw,44px);font-weight:900;text-shadow:0 3px 12px #000;pointer-events:none;text-align:center;white-space:pre-line;opacity:0;transition:opacity .2s;max-width:92%}
+#banner.show{opacity:1}
+#pad{position:absolute;left:10px;bottom:10px;background:#0d1117e6;border:1px solid var(--line);border-radius:10px;padding:6px 10px;font-size:12px;display:flex;gap:8px;align-items:center}
+#pad i{width:9px;height:9px;border-radius:50%;background:#6e7681;display:inline-block}
+#pad.on{border-color:var(--ok)} #pad.on i{background:var(--ok);box-shadow:0 0 6px var(--ok)}
+#cam{position:absolute;right:10px;bottom:10px;background:#0d1117cc;border:1px solid var(--line);border-radius:8px;padding:6px 10px;font-size:12px;pointer-events:none}
+#helpBtn{position:absolute;right:10px;top:10px;z-index:6}
+#help{position:absolute;right:10px;top:52px;width:340px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:12px;display:none;max-height:calc(100% - 110px);overflow:auto}
+#help.on{display:block}
+table.k{width:100%;border-collapse:collapse}
+table.k td{border-bottom:1px solid #ffffff12;padding:4px 3px;vertical-align:top}
+table.k td:first-child{color:var(--mute);white-space:nowrap;width:42%}
+#overlay{position:absolute;inset:0;background:#0b0f14d0;display:flex;align-items:center;justify-content:center;z-index:8;padding:16px}
+.card{background:#2b3150;border:1px solid var(--line);border-radius:14px;padding:20px 24px;max-width:700px;box-shadow:0 20px 60px #000a}
+.card h1{margin:0 0 6px;font-size:22px}
+.card p{margin:6px 0;color:#d6d9ec}
+.card .note{color:var(--mute);font-size:12px}
+.card .cols{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+</style>
+<script type="importmap">
+{"imports":{"three":"../../vendor/three/build/three.module.js","three/addons/":"../../vendor/three/examples/jsm/"}}
+</script>
+</head>
+<body>
+<div id="view" tabindex="0">
+  <div id="hud"><div class="tm a"><span id="sA">0</span><small>나</small></div><div class="mid"><div class="clock" id="clock">3:00</div><div class="per" id="per">대기</div></div><div class="tm b"><span id="sB">0</span><small>상대</small></div></div>
+  <button class="btn" id="exit">← 나가기</button>
+  <div id="side"></div>
+  <div id="count"></div>
+  <div id="banner"></div>
+  <div id="pad"><i></i><span id="padTxt">컨트롤러 없음 — 키보드 사용</span></div>
+  <div id="cam"></div>
+  <button class="btn" id="helpBtn">조작법 (H)</button>
+  <div id="help"></div>
+  <div id="overlay"><div class="card" id="card">불러오는 중…</div></div>
+</div>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+/* ============================================================
+   휴머노이드 배틀 — ROBOTIS MAX-E1 (Dynamic-Makers와 같은 몸체 치수 · 관절 방향 · 공식 예제 모션)
+   · 몸체: STEP 부품 조립 기준 치수(maxe1-cad.json), 6 × 2XL430 = 12축, 다리는 이중 평행 링크
+   · 모션: ROBOTIS ENGINEER Kit 1 MAX-E1 예제 모션 파일(03_ENG1_MAX_E1.mtn3), © ROBOTIS
+   · 판정: 모션 재생 + 간이 판정 (손·발 끝이 상대 몸에 닿으면 타격 → 힘·자세에 따라 다운)
+   · 규정: worldrobotleague.net/rules/humanoid-battle — 밴텀급(1.5 kg 미만) 경기장 120 × 120 cm
+   ============================================================ */
+const P = new URLSearchParams(location.search);
+const EMBED = P.get('embed') === '1', MODE = P.get('mode') || 'practice';
+const LEVEL = Math.max(0, Math.min(1, +(P.get('level') || 0.3)));
+const post = m => { if (EMBED) try { parent.postMessage(Object.assign({ source: 'wrlsim' }, m), '*'); } catch (e) {} };
+const $ = s => document.querySelector(s);
+const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
+const wrapA = a => { while (a > Math.PI) a -= 2 * Math.PI; while (a < -Math.PI) a += 2 * Math.PI; return a; };
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+const D2R = Math.PI / 180;
+
+const RULE = { arena: 1.20, platH: 0.10, time: 180, ot: 60, tko: 5, count: 10, idle: 5, startGap: 0.30 };
+
+/* ---------------- 모션 ---------------- */
+const MOT = await fetch('maxe1-motions.json').then(r => r.json());
+const FRAME = MOT.frameSeconds;
+const CALL = Object.fromEntries(MOT.calls);
+function timeline(idx, start, speed = 1) {
+  const flow = MOT.flows[CALL[idx]]; if (!flow) return null;
+  const frames = [{ t: 0, pose: start.slice() }]; let t0 = 0;
+  for (const [page, loop, sp0] of flow) {
+    const rows = MOT.pages[page]; if (!rows) continue; const sp = Math.max(0.05, sp0 * speed), secs = rows[rows.length - 1][0] * FRAME;
+    for (let k = 0; k < loop; k++) { for (const r of rows) frames.push({ t: t0 + r[0] * FRAME / sp, pose: r.slice(1) }); t0 += secs / sp; }
+  }
+  return { frames, dur: t0 };
+}
+function poseAt(tl, t) {
+  const f = tl.frames; if (t <= 0) return f[0].pose;
+  for (let i = 1; i < f.length; i++) if (f[i].t >= t) { const a = f[i - 1], b = f[i], k = (t - a.t) / Math.max(1e-6, b.t - a.t); return b.pose.map((v, n) => a.pose[n] + (v - a.pose[n]) * k); }
+  return f[f.length - 1].pose;
+}
+// 모션별 이동(이 시뮬레이터의 가정): 앞 m/s · 왼쪽 m/s · 회전 rad/s
+const MOVE = {
+  150: [0.05, 0, 0], 152: [0.11, 0, 0], 154: [0.04, 0, 0], 151: [0.1, 0, 0.25], 153: [0.1, 0, -0.25],
+  155: [-0.04, 0, 0], 157: [-0.09, 0, 0], 159: [-0.03, 0, 0],
+  160: [0.08, 0, 0], 162: [0.19, 0, 0], 164: [0.07, 0, 0], 165: [-0.07, 0, 0], 167: [-0.15, 0, 0], 169: [-0.05, 0, 0],
+  132: [0, 0.055, 0], 133: [0, -0.055, 0], 134: [0, -0.07, 0], 135: [0, 0.07, 0],
+  136: [0.045, -0.045, 0], 137: [0.045, 0.045, 0], 138: [-0.04, -0.04, 0], 139: [-0.04, 0.04, 0],
+  140: [0, 0, -0.75], 141: [0, 0, 0.75],
+};
+// 공격: 쓰는 손발, 타격 구간(모션 진행 비율), 힘
+const ATK = {
+  181: { name: '펀치', limb: 'Lh', win: [0.2, 0.62], pow: 1.0 },
+  130: { name: '오른팔 옆 공격', limb: 'Rh', win: [0.32, 0.72], pow: 1.35 },
+  131: { name: '왼팔 옆 공격', limb: 'Lh', win: [0.32, 0.72], pow: 1.35 },
+  182: { name: '오른팔 훅', limb: 'Rh', win: [0.3, 0.68], pow: 1.55 },
+  183: { name: '왼팔 훅', limb: 'Lh', win: [0.3, 0.68], pow: 1.55 },
+  121: { name: '오른발 킥', limb: 'Rf', win: [0.35, 0.72], pow: 2.1, kick: true },
+  120: { name: '왼발 킥', limb: 'Lf', win: [0.35, 0.72], pow: 2.1, kick: true },
+};
+const BLOCK = { 122: [0.15, 0.85], 123: [0.15, 0.85] };
+
+/* ---------------- 장면 ---------------- */
+const view = $('#view');
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2)); renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+view.prepend(renderer.domElement);
+const scene = new THREE.Scene(); scene.background = new THREE.Color(0x2c3150); scene.fog = new THREE.Fog(0x2c3150, 4, 10);
+const camera = new THREE.PerspectiveCamera(45, 1, 0.01, 30);
+const controls = new OrbitControls(camera, renderer.domElement); controls.enabled = false; controls.target.set(0, RULE.platH + 0.15, 0);
+scene.add(new THREE.HemisphereLight(0xffffff, 0x404a66, 0.95));
+const sun = new THREE.DirectionalLight(0xffffff, 1.7); sun.position.set(0.8, 2.6, 1.2); sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048);
+Object.assign(sun.shadow.camera, { left: -1, right: 1, top: 1, bottom: -1, near: 0.5, far: 6 }); scene.add(sun);
+function resize() { const w = view.clientWidth, h = view.clientHeight; renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix(); }
+new ResizeObserver(resize).observe(view);
+// 경기장: 120 × 120 cm, 높이 10 cm, PET 바닥 · 가운데 "11" 출발선
+{
+  const A = RULE.arena, c = document.createElement('canvas'); c.width = c.height = 1200; const g = c.getContext('2d');
+  g.fillStyle = '#eef0f2'; g.fillRect(0, 0, 1200, 1200);
+  g.strokeStyle = '#00000010'; for (let i = 0; i <= 1200; i += 100) { g.beginPath(); g.moveTo(i, 0); g.lineTo(i, 1200); g.moveTo(0, i); g.lineTo(1200, i); g.stroke(); }
+  g.fillStyle = '#1b1b1f'; for (const x of [600 - 150 - 12, 600 - 150 + 4, 600 + 150 - 16, 600 + 150]) g.fillRect(x, 520, 12, 160);
+  g.strokeStyle = '#c03a2b'; g.lineWidth = 16; g.strokeRect(8, 8, 1184, 1184);
+  const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 8;
+  const top = new THREE.Mesh(new THREE.BoxGeometry(A, RULE.platH, A), [0, 1, 2, 3, 4, 5].map(i => i === 2 ? new THREE.MeshStandardMaterial({ map: tex, roughness: 0.75 }) : new THREE.MeshStandardMaterial({ color: 0x8b6b45, roughness: 0.8 })));
+  top.position.y = RULE.platH / 2; top.receiveShadow = true; top.castShadow = true; scene.add(top);
+  const fl = new THREE.Mesh(new THREE.PlaneGeometry(10, 10), new THREE.MeshStandardMaterial({ color: 0x3a3f5c, roughness: 1 })); fl.rotation.x = -Math.PI / 2; fl.receiveShadow = true; scene.add(fl);
+}
+
+/* ---------------- MAX-E1 3D 모델 ---------------- */
+// MuJoCo 좌표(x 앞, y 왼쪽, z 위) → three(x 앞, y 위, z 오른쪽): (x, z, −y)
+const JOINTS = [ // ID 1~12 (Dynamic-Makers MAXE1_JOINT_MAP과 같은 방향)
+  ['R_shoulder_pitch', -1], ['R_shoulder_roll', -1], ['L_shoulder_pitch', 1], ['L_shoulder_roll', 1],
+  ['R_hip_roll', -1], ['R_hip_pitch', 1], ['L_hip_roll', -1], ['L_hip_pitch', 1],
+  ['R_knee', -1], ['R_ankle_roll', 1], ['L_knee', -1], ['L_ankle_roll', 1]];
+const TILT = 15 * D2R, ARM_L = 0.1415, ZC = 0.3072;
+function buildRobot(teamColor, frameColor) {
+  const mk = (geo, color, rough = 0.55) => { const m = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ color, roughness: rough })); m.castShadow = true; m.receiveShadow = true; return m; };
+  const box = (x, y, z, color, px = 0, py = 0, pz = 0, parent) => { const m = mk(new THREE.BoxGeometry(x, y, z), color); m.position.set(px, py, pz); parent.add(m); return m; };
+  const link = (len, r, color, parent) => { const m = mk(new THREE.CylinderGeometry(r, r, len, 12), color); m.position.y = -len / 2; parent.add(m); return m; };
+  const DARK = 0x26272b, FRAME = frameColor;
+  const root = new THREE.Group();     // 경기장 위치 · 방향
+  const tilt = new THREE.Group(); root.add(tilt); // 넘어짐 (발 쪽을 축으로)
+  const body = new THREE.Group(); tilt.add(body);  // 바닥에서 몸통까지 높이 보정
+  const torso = new THREE.Group(); torso.position.y = ZC; body.add(torso);
+  box(0.0504, 0.0506, 0.1077, teamColor, 0, 0, 0, torso);
+  box(0.044, 0.044, 0.094, FRAME, 0, -0.0436, 0, torso);
+  box(0.0326, 0.048, 0.09, DARK, -0.0433, -0.082, 0, torso);
+  const head = box(0.042, 0.046, 0.034, 0xf1f2f6, 0, 0.0253 + 0.023, 0, torso);
+  box(0.006, 0.012, 0.024, 0x111111, 0.021, 0.006, 0, head);
+  const J = {}, M = {};
+  for (const [side, out] of [['R', 1], ['L', -1]]) {    // three z: 오른쪽 +
+    const sh = new THREE.Group(); sh.position.set(0, 0.32594 - ZC, out * 0.07058); torso.add(sh);
+    box(0.041, 0.047, 0.041, DARK, 0, 0, 0, sh);
+    const shP = new THREE.Group(); sh.add(shP); J[side + '_shoulder_pitch'] = { o: shP, axis: new THREE.Vector3(0, out * Math.sin(TILT), -Math.cos(TILT)).normalize() };
+    const arm = new THREE.Group(); arm.position.set(0, 0.30275 - 0.32594, out * (0.0768 - 0.07058)); shP.add(arm);
+    const armR = new THREE.Group(); arm.add(armR); J[side + '_shoulder_roll'] = { o: armR, axis: new THREE.Vector3(1, 0, 0) };
+    const dir = new THREE.Vector3(0, -Math.cos(TILT), out * Math.sin(TILT));
+    const lk = mk(new THREE.CylinderGeometry(0.013, 0.011, ARM_L, 12), FRAME); lk.position.copy(dir.clone().multiplyScalar(ARM_L / 2)); lk.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir); armR.add(lk);
+    const hand = mk(new THREE.SphereGeometry(0.016, 12, 10), teamColor); hand.position.copy(dir.clone().multiplyScalar(ARM_L)); armR.add(hand); M[side + 'h'] = hand;
+    // 다리 (이중 평행 링크)
+    const hip = new THREE.Group(); hip.position.set(0, 0.2172 - ZC, out * 0.0352); torso.add(hip);
+    const hipR = new THREE.Group(); hip.add(hipR); J[side + '_hip_roll'] = { o: hipR, axis: new THREE.Vector3(1, 0, 0) };
+    box(0.041, 0.047, 0.041, DARK, 0, -0.012, 0, hipR);
+    const thigh = new THREE.Group(); thigh.position.y = 0.1932 - 0.2172; hipR.add(thigh); J[side + '_hip_pitch'] = { o: thigh, axis: new THREE.Vector3(0, 0, -1) };
+    link(0.06, 0.011, FRAME, thigh);
+    const kf = new THREE.Group(); kf.position.y = -0.06; thigh.add(kf); J[side + '_knee_comp'] = { o: kf, axis: new THREE.Vector3(0, 0, -1) };
+    box(0.032, 0.032, 0.036, FRAME, 0.012, -0.008, 0, kf);
+    const shin = new THREE.Group(); shin.position.y = 0.1177 - 0.1332; kf.add(shin); J[side + '_knee'] = { o: shin, axis: new THREE.Vector3(0, 0, -1) };
+    link(0.06, 0.011, FRAME, shin);
+    const af = new THREE.Group(); af.position.y = -0.06; shin.add(af); J[side + '_ankle_comp'] = { o: af, axis: new THREE.Vector3(0, 0, -1) };
+    box(0.041, 0.047, 0.041, DARK, 0, -0.012, 0, af);
+    const foot = new THREE.Group(); foot.position.y = 0.0337 - 0.0577; af.add(foot); J[side + '_ankle_roll'] = { o: foot, axis: new THREE.Vector3(1, 0, 0) };
+    box(0.102, 0.0082, 0.064, teamColor, 0, -0.0337 + 0.0041, 0, foot);
+    const toe = new THREE.Object3D(); toe.position.set(0.05, -0.028, 0); foot.add(toe); M[side + 'f'] = toe;
+    const sole = new THREE.Object3D(); sole.position.set(0, -0.0337, 0); foot.add(sole); M[side + 's'] = sole;
+  }
+  return { root, tilt, body, torso, head, J, M };
+}
+
+/* ---------------- 로봇 ---------------- */
+class Bot {
+  constructor(team) {
+    this.team = team; this.name = team ? '상대' : '나';
+    this.m = buildRobot(team ? 0xd23a2a : 0x2f6bff, 0x9aa3b0); scene.add(this.m.root);
+    this.reset(team ? RULE.startGap / 2 : -RULE.startGap / 2, 0, team ? Math.PI : 0);
+  }
+  reset(x, z, th) {
+    Object.assign(this, { x, z, th, pose: Array(12).fill(0), mot: null, queue: [], walk: null, fallen: null, fallT: 0, pitch: 0, out: false, kb: [0, 0, 0], hitDone: false, idleT: 0, critUsed: this.critUsed || false, getup: false });
+    this.play(101);
+  }
+  play(idx, opts = {}) {
+    const tl = timeline(idx, this.pose, opts.speed || 1); if (!tl) return false;
+    this.mot = { idx, tl, t: 0, kind: opts.kind || (ATK[idx] ? 'atk' : BLOCK[idx] ? 'block' : MOVE[idx] ? 'move' : 'pose'), then: opts.then || null };
+    this.hitDone = false; if (idx !== 101) this.idleT = 0; return true;
+  }
+  get busy() { return this.mot && (this.mot.kind === 'atk' || this.mot.kind === 'block' || this.mot.kind === 'getup'); }
+  get progress() { return this.mot ? this.mot.t / Math.max(1e-6, this.mot.tl.dur) : 1; }
+  fwd() { return [Math.cos(this.th), -Math.sin(this.th)]; }
+  left() { return [-Math.sin(this.th), -Math.cos(this.th)]; }
+  step(dt) {
+    // 넉백
+    if (this.kb[2] > 0) { const k = Math.min(dt, this.kb[2]); this.x += this.kb[0] * k; this.z += this.kb[1] * k; this.kb[2] -= dt; }
+    if (this.fallen && !this.getup) { this.fallT += dt; this.pitch = Math.min(1, this.pitch + dt * 3.2); return; }
+    const m = this.mot; if (!m) return;
+    m.t += dt;
+    this.pose = poseAt(m.tl, m.t);
+    const mv = MOVE[m.idx]; if (mv && !this.fallen) {
+      const f = this.fwd(), l = this.left();
+      this.x += (f[0] * mv[0] + l[0] * mv[1]) * dt; this.z += (f[1] * mv[0] + l[1] * mv[1]) * dt; this.th = wrapA(this.th + mv[2] * dt);
+    }
+    if (this.getup) this.pitch = Math.max(0, 1 - this.progress / 0.7);
+    if (m.t >= m.tl.dur) {
+      const was = m; this.mot = null;
+      if (this.getup) { this.getup = false; this.fallen = null; this.pitch = 0; }
+      if (was.then) was.then();
+      else if (!this.mot && was.idx !== 101 && !MOVE[was.idx]) this.play(101);
+    }
+  }
+  // 걷기: 시작 → 반복(누르는 동안) → 끝
+  walkCtl(dir, fast) {
+    if (this.busy || this.fallen) return;
+    const S = dir > 0 ? (fast ? [160, 162, 164] : [150, 152, 154]) : (fast ? [165, 167, 169] : [155, 157, 159]);
+    if (this.walk && this.walk.dir === dir) { this.walk.hold = true; return; }
+    this.walk = { dir, hold: true, S };
+    const loop = () => { if (!this.walk) return; if (this.walk.hold) { this.walk.hold = false; this.play(S[1], { then: loop }); } else { const w = this.walk; this.walk = null; this.play(w.S[2], { then: () => { if (!this.mot) this.play(101); } }); } };
+    this.play(S[0], { then: loop });
+  }
+  stopWalk() { if (this.walk) this.walk.hold = false; }
+  repeatMove(idx) { if (this.busy || this.fallen || this.walk) return; if (this.mot && this.mot.idx === idx && this.mot.t < this.mot.tl.dur * 0.85) return; if (this.mot && this.mot.kind === 'move' && this.mot.idx !== idx && this.mot.t < this.mot.tl.dur * 0.6) return; this.play(idx); }
+  attack(idx) { if (this.fallen || (this.busy && this.mot.kind !== 'block')) return false; this.walk = null; return this.play(idx, { kind: 'atk' }); }
+  block(idx) { if (this.fallen || this.busy) return; this.walk = null; this.play(idx, { kind: 'block' }); }
+  standUp() { if (!this.fallen || this.getup) return; this.getup = true; this.pose = Array(12).fill(0); this.play(this.fallen.dir > 0 ? 105 : 106, { kind: 'getup' }); }
+  knockDown(dir) { if (this.fallen) return; this.walk = null; this.mot = null; this.fallen = { dir }; this.fallT = 0; this.pitch = 0; this.getup = false; }
+  blocking() { const m = this.mot; if (!m || m.kind !== 'block') return false; const p = this.progress, w = BLOCK[m.idx]; return p > w[0] && p < w[1]; }
+  stability() {
+    if (this.fallen) return 0;
+    const m = this.mot; if (!m) return 1.0;
+    if (m.kind === 'atk') return ATK[m.idx].kick ? 0.35 : 0.7;
+    if (m.kind === 'getup') return 0.4;
+    if (m.kind === 'block') return 1.25;
+    if (MOVE[m.idx]) return 0.8;
+    return 1.0;
+  }
+  sync() {
+    const r = this.m; r.root.position.set(this.x, this.out ? -0.4 * Math.min(1, this.outT || 0) : RULE.platH, this.z); r.root.rotation.y = this.th;
+    for (let i = 0; i < 12; i++) { const [name, sg] = JOINTS[i]; const j = r.J[name]; j.o.quaternion.setFromAxisAngle(j.axis, sg * this.pose[i] * D2R); }
+    for (const s of ['R', 'L']) { const hp = r.J[s + '_hip_pitch'].o.quaternion.clone(), kn = r.J[s + '_knee'].o.quaternion.clone(); r.J[s + '_knee_comp'].o.quaternion.copy(hp.invert()); r.J[s + '_ankle_comp'].o.quaternion.copy(kn.invert()); }
+    // 바닥 높이: 두 발바닥 중 낮은 쪽이 바닥에 닿게
+    r.body.position.y = 0; r.tilt.rotation.set(0, 0, 0); r.root.updateMatrixWorld(true);
+    const v = new THREE.Vector3(); let minY = 1e9; for (const s of ['R', 'L']) { r.M[s + 's'].getWorldPosition(v); minY = Math.min(minY, v.y - r.root.position.y); }
+    r.body.position.y = -minY;
+    // 넘어짐: 앞(+1)이면 앞으로, 뒤(−1)면 뒤로 눕힘 (발 쪽 축)
+    const dir = this.fallen ? this.fallen.dir : 0; const ease = t => t * t * (3 - 2 * t);
+    r.tilt.rotation.z = -dir * ease(this.pitch) * (Math.PI / 2 - 0.12);
+    r.root.updateMatrixWorld(true);
+  }
+  limb(name) { const v = new THREE.Vector3(); this.m.M[name].getWorldPosition(v); return v; }
+}
+const me = new Bot(0), op = new Bot(1);
+
+/* ---------------- 입력 ---------------- */
+const KEY = new Set();
+addEventListener('keydown', e => { KEY.add(e.code); if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code)) e.preventDefault(); keyEdge(e.code); });
+addEventListener('keyup', e => KEY.delete(e.code)); addEventListener('blur', () => KEY.clear());
+let padPrev = [], axPrev = [0, 0, 0, 0];
+const getPad = () => { const ps = navigator.getGamepads ? [...navigator.getGamepads()].filter(Boolean) : []; return ps[0] || null; };
+const EDGE = [];
+function keyEdge(c) {
+  const map = { KeyJ: 'A', KeyK: 'B', KeyU: 'X', KeyI: 'Y', KeyO: 'RB', KeyL: 'LB', KeyN: 'RL', KeyM: 'RR', KeyB: 'BL', Comma: 'BR' };
+  if (map[c]) EDGE.push(map[c]);
+  if (c === 'KeyC') cycleCam(); if (c === 'KeyP') togglePause(); if (c === 'KeyH') $('#help').classList.toggle('on');
+}
+function readInput() {
+  const IN = { up: 0, dn: 0, lf: 0, rg: 0, lt: 0, rt: 0, pad: false, edges: EDGE.splice(0) };
+  const p = getPad();
+  if (p) {
+    IN.pad = true;
+    const B = i => !!(p.buttons[i] && (p.buttons[i].pressed || p.buttons[i].value > 0.5));
+    IN.up = B(12); IN.dn = B(13); IN.lf = B(14); IN.rg = B(15); IN.lt = (p.buttons[6] || {}).value || 0; IN.rt = (p.buttons[7] || {}).value || 0;
+    const now = p.buttons.map(b => b.pressed), e = i => now[i] && !padPrev[i];
+    if (e(0)) IN.edges.push('A'); if (e(1)) IN.edges.push('B'); if (e(2)) IN.edges.push('X'); if (e(3)) IN.edges.push('Y');
+    if (e(5)) IN.edges.push('RB'); if (e(4)) IN.edges.push('LB'); if (e(9)) togglePause(); if (e(8) || e(11)) cycleCam();
+    padPrev = now;
+    const ax = [p.axes[0] || 0, p.axes[1] || 0, p.axes[2] || 0, p.axes[3] || 0], th = 0.6;
+    if (ax[2] < -th && axPrev[2] >= -th) IN.edges.push('RL'); if (ax[2] > th && axPrev[2] <= th) IN.edges.push('RR');
+    if (ax[0] < -th && axPrev[0] >= -th) IN.edges.push('BL'); if (ax[0] > th && axPrev[0] <= th) IN.edges.push('BR');
+    axPrev = ax;
+  }
+  const k = c => KEY.has(c);
+  if (k('KeyW')) IN.up = 1; if (k('KeyS')) IN.dn = 1; if (k('KeyA')) IN.lf = 1; if (k('KeyD')) IN.rg = 1;
+  if (k('KeyQ')) { IN.lt = 1; IN.lf = 1; } if (k('KeyE')) { IN.lt = 1; IN.rg = 1; }
+  if (k('ShiftLeft') || k('ShiftRight')) IN.rt = 1;
+  return IN;
+}
+// 엑스박스 버튼 ↔ MAX-E1 모션 (조종 시뮬레이터와 같은 D패드 · RT 파워 방식)
+function control(b, IN) {
+  for (const e of IN.edges) {
+    if (e === 'Y') { if (b.fallen) b.standUp(); continue; }
+    const atk = { A: 181, B: 130, X: 131, RB: 121, LB: 120, RL: 183, RR: 182 }[e];
+    if (atk) { b.attack(atk); continue; }
+    if (e === 'BL') b.block(122); if (e === 'BR') b.block(123);
+  }
+  if (b.fallen || b.busy) return;
+  const fast = IN.rt > 0.5, fwd = (IN.up ? 1 : 0) - (IN.dn ? 1 : 0), side = (IN.rg ? 1 : 0) - (IN.lf ? 1 : 0);
+  if (fwd && !side) { b.walkCtl(fwd, fast); return; }
+  b.stopWalk(); if (b.walk) return;
+  if (fwd && side) b.repeatMove(fwd > 0 ? (side > 0 ? 136 : 137) : (side > 0 ? 138 : 139));
+  else if (side && IN.lt > 0.5) b.repeatMove(side > 0 ? (fast ? 134 : 133) : (fast ? 135 : 132));
+  else if (side) b.repeatMove(side > 0 ? 140 : 141);
+}
+
+/* ---------------- 가상 상대 AI ---------------- */
+const AI = (() => {
+  const s = LEVEL;
+  return { react: 0.85 - 0.6 * s, aimTol: (24 - 12 * s) * D2R, blockP: 0.05 + 0.5 * s, getup: 2.6 - 1.9 * s, fast: s > 0.55, smart: s, aggr: 0.35 + 0.55 * s, t: 0, plan: null, getT: 0 };
+})();
+function aiThink(b, foe, dt) {
+  AI.t -= dt;
+  const IN = { up: 0, dn: 0, lf: 0, rg: 0, lt: 0, rt: AI.fast ? 1 : 0, edges: [] };
+  if (b.fallen) { if (!b.getup) { AI.getT += dt; if (AI.getT > AI.getup + Math.random() * 0.4) { AI.getT = 0; IN.edges.push('Y'); } } return IN; }
+  AI.getT = 0;
+  // 상대가 공격을 시작하면 막기 (실력만큼)
+  if (foe.mot && foe.mot.kind === 'atk' && foe.progress < 0.25 && !b.busy && !AI.blocked) { AI.blocked = foe.mot; if (Math.random() < AI.blockP && dist(b, foe) < 0.26) { IN.edges.push(Math.random() < 0.5 ? 'BL' : 'BR'); return IN; } }
+  if (!(foe.mot && foe.mot.kind === 'atk')) AI.blocked = null;
+  const dx = foe.x - b.x, dz = foe.z - b.z, d = Math.hypot(dx, dz);
+  const want = Math.atan2(-dz, dx), err = wrapA(want - b.th);
+  // 테두리 조심
+  const half = RULE.arena / 2, edge = half - Math.max(Math.abs(b.x), Math.abs(b.z));
+  if (AI.t <= 0 || !AI.plan) {
+    AI.t = AI.react * (0.7 + Math.random() * 0.6);
+    const outward = (b.fwd()[0] * b.x + b.fwd()[1] * b.z) > 0.02;
+    if (edge < 0.1 && outward && d > 0.22) AI.plan = { kind: 'turn', dir: Math.sign(wrapA(Math.atan2(b.z, -b.x) - b.th)) || 1, until: 0.6 };
+    else if (Math.abs(err) > AI.aimTol) AI.plan = { kind: 'turn', dir: Math.sign(err) };
+    else if (d > 0.2) AI.plan = { kind: 'walk' };
+    else if (d < 0.1 && Math.random() < 0.5) AI.plan = { kind: 'back' };
+    else if (Math.random() < AI.aggr) {
+      // 공격 고르기: 실력이 높을수록 상대가 흔들릴 때 킥, 정면이면 펀치·훅
+      let atk;
+      const unstable = foe.stability() < 0.8;
+      if (Math.random() < AI.smart) atk = unstable || (d < 0.17 && Math.random() < 0.35) ? (Math.random() < 0.5 ? 'RB' : 'LB') : (d < 0.16 ? (Math.random() < 0.5 ? 'RR' : 'RL') : 'A');
+      else atk = ['A', 'B', 'X', 'RB', 'LB', 'RL', 'RR'][Math.floor(Math.random() * 7)];
+      AI.plan = { kind: 'atk', a: atk };
+    } else AI.plan = { kind: Math.random() < 0.5 ? 'side' : 'wait', dir: Math.random() < 0.5 ? -1 : 1 };
+  }
+  const p = AI.plan;
+  if (p.kind === 'turn') { if (p.dir > 0) IN.lf = 1; else IN.rg = 1; if (Math.abs(err) < AI.aimTol * 0.5 && !p.until) AI.plan = null; }
+  else if (p.kind === 'walk') { IN.up = 1; if (d < 0.19 || Math.abs(err) > AI.aimTol * 1.6) AI.plan = null; }
+  else if (p.kind === 'back') IN.dn = 1;
+  else if (p.kind === 'side') { IN.lt = 1; if (p.dir > 0) IN.rg = 1; else IN.lf = 1; }
+  else if (p.kind === 'atk') { IN.edges.push(p.a); AI.plan = null; }
+  return IN;
+}
+const dist = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
+
+/* ---------------- 경기 ---------------- */
+const G = { phase: 'idle', clock: RULE.time, ot: false, score: [0, 0], paused: false, t: 0, ko: null, restartT: 0, why: '' };
+function banner(t, d = 1.6) { const el = $('#banner'); el.textContent = t; el.classList.add('show'); clearTimeout(banner.t); banner.t = setTimeout(() => el.classList.remove('show'), d * 1000); }
+let AC = null; function beep(f = 900, d = 0.08, v = 0.06, type = 'square') { try { AC = AC || new AudioContext(); const o = AC.createOscillator(), g = AC.createGain(); o.type = type; o.frequency.value = f; g.gain.value = v; o.connect(g); g.connect(AC.destination); o.start(); g.gain.exponentialRampToValueAtTime(0.0001, AC.currentTime + d); o.stop(AC.currentTime + d); } catch (e) {} }
+function placeStart() {
+  for (const b of [me, op]) { b.out = false; b.outT = 0; b.kb = [0, 0, 0]; }
+  me.reset(-RULE.startGap / 2, 0, 0); op.reset(RULE.startGap / 2, 0, Math.PI);
+  AI.plan = null; AI.t = 0.6;
+}
+function startMatch() {
+  G.score = [0, 0]; G.clock = RULE.time; G.ot = false; G.ko = null; G.why = ''; me.critUsed = op.critUsed = false;
+  placeStart(); G.phase = 'count'; G.t = 0; banner('3', 0.8);
+}
+function point(team, n, why) {
+  G.score[team] += n; banner(`${team === 0 ? '나' : '상대'} +${n}  ${why}`, 1.6); beep(team === 0 ? 1200 : 500, 0.2, 0.06, 'triangle');
+  if (G.ot) return end(team === 0 ? 'win' : 'loss', '연장 골든 다운');
+  if (G.score[team] >= RULE.tko) return end(team === 0 ? 'win' : 'loss', 'TKO (5다운)');
+}
+function end(res, why) {
+  if (G.phase === 'end') return; G.phase = 'end'; G.why = why; const sc = G.score.slice();
+  banner((res === 'win' ? '승리!' : res === 'loss' ? '패배' : '무승부') + '\n' + why, 4);
+  setTimeout(() => { post({ type: 'wrlsim:result', result: res, score: sc, detail: `휴머노이드 배틀 · ${why}` }); if (!EMBED) showEnd(res, sc); }, 2500);
+}
+function togglePause() { if (G.phase === 'play' || G.phase === 'count') { G.paused = !G.paused; banner(G.paused ? '일시정지' : '재개', 0.8); } }
+
+function hitCheck(att, def) {
+  const m = att.mot; if (!m || m.kind !== 'atk' || att.hitDone || def.fallen || def.out) return;
+  const A = ATK[m.idx], p = att.progress; if (p < A.win[0] || p > A.win[1]) return;
+  const tip = att.limb(A.limb);
+  // 상대 몸통(골반~머리) 선분과의 거리
+  const base = new THREE.Vector3(def.x, RULE.platH + 0.14, def.z), top = new THREE.Vector3(def.x, RULE.platH + 0.37, def.z);
+  const seg = top.clone().sub(base), tt = clamp(tip.clone().sub(base).dot(seg) / seg.lengthSq(), 0, 1), q = base.clone().add(seg.multiplyScalar(tt));
+  const reach = A.kick ? 0.075 : 0.07;
+  if (tip.distanceTo(q) > reach && !(A.kick && Math.hypot(tip.x - def.x, tip.z - def.z) < 0.065 && tip.y < RULE.platH + 0.2)) return;
+  att.hitDone = true;
+  const dx = def.x - att.x, dz = def.z - att.z, d = Math.hypot(dx, dz) || 1, ux = dx / d, uz = dz / d;
+  let pow = A.pow * (0.85 + Math.random() * 0.3);
+  if (def.blocking()) { pow *= 0.3; banner(`${def.name} 막기!`, 0.7); beep(1500, 0.05, 0.04); }
+  else beep(220, 0.12, 0.08, 'sawtooth');
+  def.kb = [ux * 0.25 * pow, uz * 0.25 * pow, 0.22];
+  const pDown = clamp(0.08 + 0.42 * (pow - def.stability()), 0.03, 0.9);
+  if (Math.random() < pDown) {
+    const f = def.fwd(), facing = f[0] * ux + f[1] * uz; // 상대가 앞에서 맞으면(밀림 방향과 반대를 봄) 뒤로 넘어짐
+    def.knockDown(facing < 0 ? -1 : 1);
+    let n = 1, why = A.name + ' — 다운';
+    if (A.kick && !att.critUsed && pow > 1.9) { n = 2; att.critUsed = true; why = A.name + ' — 크리티컬 어택(2다운)'; }
+    point(att.team, n, why);
+    if (G.phase === 'play') G.ko = { who: def, t: 0 };
+  }
+}
+function separate() {
+  const dx = op.x - me.x, dz = op.z - me.z, d = Math.hypot(dx, dz), minD = 0.115;
+  if (d < minD && !me.fallen && !op.fallen) { const k = (minD - d) / 2 / (d || 1); me.x -= dx * k; me.z -= dz * k; op.x += dx * k; op.z += dz * k; }
+}
+function ringCheck(b, dt) {
+  const half = RULE.arena / 2;
+  if (b.out) { b.outT = (b.outT || 0) + dt * 2.5; return; }
+  let x = b.x, z = b.z;
+  if (b.fallen && b.pitch > 0.5) { const f = b.fwd(); x += f[0] * 0.18 * b.fallen.dir; z += f[1] * 0.18 * b.fallen.dir; } // 누운 몸의 가운데
+  if (Math.abs(b.x) > half || Math.abs(b.z) > half || (b.fallen && (Math.abs(x) > half + 0.05 || Math.abs(z) > half + 0.05))) {
+    b.out = true; b.outT = 0; b.mot = null; b.walk = null;
+    if (G.phase === 'play') { point(1 - b.team, 1, '링아웃'); G.ko = null; if (G.phase === 'play') { G.phase = 'restart'; G.restartT = 0; } }
+  }
+}
+
+/* ---------------- 카메라 ---------------- */
+const CAMS = ['side', 'behind', 'top', 'free'], CAMNAME = { side: '중계 (옆)', behind: '내 로봇 뒤', top: '탑뷰', free: '자유 (마우스)' };
+let camMode = 'side', camSnap = true; const camP = new THREE.Vector3(), camT = new THREE.Vector3();
+function cycleCam() { camMode = CAMS[(CAMS.indexOf(camMode) + 1) % CAMS.length]; controls.enabled = camMode === 'free'; camSnap = true; $('#cam').textContent = '📷 ' + CAMNAME[camMode] + ' (C · View)'; }
+function updateCam(dt) {
+  if (camMode === 'free') { controls.update(); return; }
+  const mx = (me.x + op.x) / 2, mz = (me.z + op.z) / 2, T = new THREE.Vector3(), Pp = new THREE.Vector3(), y0 = RULE.platH;
+  if (camMode === 'side') { T.set(mx * 0.6, y0 + 0.16, mz * 0.6); Pp.set(mx * 0.6, y0 + 0.62, 1.25 + mz * 0.3); }
+  else if (camMode === 'top') { T.set(0, y0, 0); Pp.set(0, 2.05, 0.25); }
+  else { const f = me.fwd(); T.set(op.x, y0 + 0.17, op.z); Pp.set(me.x - f[0] * 0.55, y0 + 0.45, me.z - f[1] * 0.55); }
+  const k = camSnap ? 1 : 1 - Math.exp(-dt * 4); camSnap = false; camP.lerp(Pp, k); camT.lerp(T, k); camera.position.copy(camP); camera.lookAt(camT);
+}
+
+/* ---------------- 루프 ---------------- */
+const fmt = s => { s = Math.max(0, Math.ceil(s)); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); };
+let last = performance.now(), hudT = 0;
+function frame(now) {
+  const dt = Math.min(0.05, (now - last) / 1000); last = now;
+  const IN = readInput();
+  if (!G.paused) tick(dt, IN);
+  me.sync(); op.sync(); updateCam(dt); renderer.render(scene, camera);
+  hudT += dt; if (hudT > 0.1) { hudT = 0; hud(IN); }
+  requestAnimationFrame(frame);
+}
+function tick(dt, IN) {
+  G.t += dt;
+  if (G.phase === 'count') { const n = 3 - Math.floor(G.t); if (G.t >= 3) { G.phase = 'play'; banner('파이트!', 0.9); beep(880, 0.3, 0.06, 'sine'); } else if (Math.floor(G.t - dt) !== Math.floor(G.t)) { banner(String(n), 0.8); beep(600, 0.1); } }
+  const live = G.phase === 'play' || G.phase === 'free';
+  if (live) { control(me, IN); control(op, aiThink(op, me, dt)); }
+  me.step(dt); op.step(dt); separate();
+  if (live) { hitCheck(me, op); hitCheck(op, me); }
+  for (const b of [me, op]) ringCheck(b, dt);
+  if (G.phase === 'play') {
+    G.clock -= dt;
+    // KO 카운트: 다운 뒤 10카운트 안에 일어서지 못하면 KO
+    if (G.ko) { const b = G.ko.who; if (!b.fallen) G.ko = null; else { G.ko.t += dt; if (G.ko.t >= RULE.count + 1) end(b.team === 0 ? 'loss' : 'win', 'KO (10카운트)'); } }
+    // 스탠딩 다운: 5초 넘게 움직이지 않음
+    for (const b of [me, op]) { b.idleT = (b.mot && b.mot.idx !== 101) || b.fallen ? 0 : b.idleT + dt; if (b.idleT > RULE.idle) { b.idleT = 0; point(1 - b.team, 1, `${b.name} 스탠딩 다운 (5초 정지)`); } }
+    if (G.clock <= 0 && G.phase === 'play') {
+      G.clock = 0;
+      if (G.score[0] !== G.score[1]) end(G.score[0] > G.score[1] ? 'win' : 'loss', '판정 (다운 수)');
+      else if (MODE === 'match' && !G.ot) { G.ot = true; G.clock = RULE.ot; banner('동점 — 1분 연장 (골든 다운)', 2); }
+      else end('draw', G.ot ? '연장 무승부' : '시간 종료 · 동점');
+    }
+  }
+  if (G.phase === 'restart') { G.restartT += dt; if (G.restartT > 2) { placeStart(); G.phase = 'count'; G.t = 0; } }
+}
+function hud(IN) {
+  $('#sA').textContent = G.score[0]; $('#sB').textContent = G.score[1];
+  $('#clock').textContent = fmt(G.clock);
+  $('#per').textContent = { idle: '대기', count: '준비', play: G.ot ? '연장 (골든 다운)' : '정규 3분', restart: '재시작', end: '경기 종료' }[G.phase] || '';
+  const ko = G.ko && G.ko.who.fallen && G.phase === 'play' ? Math.floor(G.ko.t) : 0;
+  const c = $('#count'); if (ko >= 1) { c.style.display = 'block'; c.innerHTML = `${ko}<small>${G.ko.who === me ? 'Y 버튼으로 일어서세요!' : '상대 다운'}</small>`; } else c.style.display = 'none';
+  const st = b => b.fallen ? (b.getup ? '일어나는 중' : '다운') : b.out ? '링아웃' : b.mot ? (b.mot.kind === 'atk' ? '공격 · ' + ATK[b.mot.idx].name : b.mot.kind === 'block' ? '막기' : b.walk ? '걷기' : MOVE[b.mot.idx] ? '이동' : '서기') : '서기';
+  $('#side').innerHTML = `<div class="row"><span>내 로봇 (파랑)</span><b>${st(me)}</b></div><div class="row"><span>상대 (빨강) · ${1 + Math.round(LEVEL * 4)}단계</span><b>${st(op)}</b></div>
+    <div class="row"><span>거리</span><b>${(dist(me, op) * 100).toFixed(0)} cm</b></div>
+    <div class="row"><span>크리티컬 어택</span><b>${me.critUsed ? '사용함' : '남음 (킥 다운 2점)'}</b></div>
+    <div class="msg">${me.fallen && !me.getup ? '⚠ 다운! Y 버튼(I 키)으로 일어서세요' : me.idleT > 3 ? '⚠ 5초 넘게 멈추면 스탠딩 다운' : ''}</div>`;
+  $('#pad').classList.toggle('on', IN.pad); $('#padTxt').textContent = IN.pad ? '🎮 엑스박스 컨트롤러 연결됨' : '컨트롤러 없음 — 키보드 사용 (버튼을 한 번 누르면 연결)';
+}
+
+/* ---------------- 시작 카드 · 도움말 ---------------- */
+const KEYS = [
+  ['D패드 ↑ / ↓', '앞으로 · 뒤로 걷기 (150·152·154 / 155·157·159)', 'W / S'],
+  ['RT + D패드 ↑ / ↓', '빠르게 걷기 (160~169)', 'Shift'],
+  ['D패드 ← / →', '제자리 왼쪽 · 오른쪽 돌기 (141 / 140)', 'A / D'],
+  ['LT + D패드 ← / →', '왼쪽 · 오른쪽 옆걸음 (132 / 133, RT면 빠르게)', 'Q / E'],
+  ['D패드 대각선', '대각선 걷기 (136~139)', 'W·S + A·D'],
+  ['A', '펀치 (181)', 'J'], ['B', '오른팔 옆 공격 (130)', 'K'], ['X', '왼팔 옆 공격 (131)', 'U'],
+  ['RB / LB', '오른발 킥 (121) / 왼발 킥 (120)', 'O / L'],
+  ['오른쪽 스틱 ← / →', '왼팔 훅 (183) / 오른팔 훅 (182)', 'N / M'],
+  ['왼쪽 스틱 ← / →', '왼쪽 막기 (122) / 오른쪽 막기 (123)', 'B / ,'],
+  ['Y', '일어서기 (앞으로 넘어지면 105, 뒤로 넘어지면 106)', 'I'],
+  ['View', '카메라 전환', 'C'], ['Menu', '일시정지', 'P'],
+];
+const keyTable = `<table class="k">${KEYS.map(([a, b, k]) => `<tr><td>${a}</td><td>${b} <span style="color:#8d93b5">[${k}]</span></td></tr>`).join('')}</table>`;
+$('#help').innerHTML = `<b>🎮 엑스박스 컨트롤러 ↔ MAX-E1 모션</b> [키보드]${keyTable}
+  <p style="color:#c9cde6;margin:8px 0 0">규정: 3분 · 다운 1점(킥으로 넘어뜨리면 경기당 한 번 크리티컬 2점) · 링아웃·5초 정지 1점 · 5다운 TKO · 다운 뒤 10카운트 안에 못 일어서면 KO · 동점이면 1분 골든 다운(대진표)</p>
+  <p style="color:#8d93b5;margin:6px 0 0">모션 데이터: ROBOTIS ENGINEER Kit 1 MAX-E1 예제 모션 © ROBOTIS · 몸체 치수·관절 방향: Dynamic-Makers</p>`;
+$('#helpBtn').addEventListener('click', () => $('#help').classList.toggle('on'));
+$('#card').innerHTML = `<h1>${esc(P.get('title') || '휴머노이드 배틀 — 연습')}</h1>
+  <p>ROBOTIS MAX-E1을 엑스박스 컨트롤러로 조종합니다. 버튼마다 공식 예제 모션(걷기·옆걸음·펀치·훅·킥·막기·일어서기)이 연결되어 있습니다.${P.get('opp') ? ` 상대 팀 <b style="color:#ffd25a">${esc(P.get('opp'))}</b>` : ''} · 상대 실력 ${1 + Math.round(LEVEL * 4)}단계 / 5</p>
+  <div class="cols"><div>${keyTable}</div><div>
+    <p class="note">경기장: 밴텀급(1.5 kg 미만, MAX-E1 1.2 kg) 120 × 120 cm, 높이 10 cm · 가운데 "11" 선 뒤에서 마주 보고 출발</p>
+    <p class="note">상대를 넘어뜨리면(다운) 1점, 경기장 밖으로 밀어내면(링아웃) 1점. 킥으로 넘어뜨리면 경기당 한 번 크리티컬 어택 2점. 3분 뒤 점수가 많은 쪽이 이기고, 5점을 먼저 얻으면 TKO 승리.</p>
+    <p class="note">내가 넘어지면 <b>Y</b>로 일어서세요. 10카운트 안에 못 일어서면 KO 패배입니다. 공격 중(특히 킥)에는 균형이 무너져 잘 넘어집니다.</p>
+    <p class="note">${MODE === 'match' ? '대진표 경기: 동점이면 1분 연장 — 먼저 점수를 내면 승리' : '연습 경기: 동점이면 무승부'}</p>
+  </div></div>
+  <div style="display:flex;gap:8px;margin-top:12px"><button class="btn pri" id="startBtn">경기 시작</button></div>`;
+$('#startBtn').addEventListener('click', () => { $('#overlay').style.display = 'none'; beep(1200, 0.05, 0.02); startMatch(); view.focus(); });
+function showEnd(res, sc) {
+  const ov = $('#overlay'); ov.style.display = 'flex';
+  $('#card').innerHTML = `<h1>${res === 'win' ? '승리!' : res === 'loss' ? '패배' : '무승부'} — ${sc[0]} : ${sc[1]}</h1><p>${esc(G.why)}</p><div style="display:flex;gap:8px;margin-top:12px"><button class="btn pri" id="again">다시 하기</button></div>`;
+  $('#again').addEventListener('click', () => { ov.style.display = 'none'; startMatch(); view.focus(); });
+}
+$('#exit').addEventListener('click', () => post({ type: 'wrlsim:exit' })); if (!EMBED) $('#exit').style.display = 'none';
+renderer.domElement.addEventListener('pointerdown', () => view.focus());
+cycleCam(); cycleCam(); cycleCam(); cycleCam(); // 'side'로
+resize(); requestAnimationFrame(frame);
+window.__hb = { me, op, G, AI, tick, startMatch, ATK, hitCheck, control, aiThink, Bot };
+post({ type: 'wrlsim:ready' });
+</script>
+</body>
+</html>

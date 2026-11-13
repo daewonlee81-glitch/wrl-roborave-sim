@@ -6,22 +6,22 @@
 export const LEAGUES = {
   wrl: {
     name: 'WRL', full: 'World Robot League', sub: '월드로봇리그',
-    desc: '휴머노이드 배틀 · 오셀로 · MRC 축구',
+    desc: '휴머노이드 · 로봇 컬링 · 오셀로 · MRC 축구',
     color: '#f2b631', rulesUrl: 'https://worldrobotleague.net/rules/',
-    events: ['humanoid_battle', 'othello', 'mrc'],
+    events: ['humanoid_battle', 'humanoid_relay', 'curling', 'othello', 'mrc'],
   },
   roborave: {
     name: 'RoboRAVE', full: 'RoboRAVE Korea Open', sub: '로보레이브 코리아 오픈',
-    desc: '스모봇 (자율형) · 미들봇 · 사커봇 RC (조종형)',
+    desc: '스모봇 · 라인 팔로잉 (자율형) · 미들봇 · 사커봇 RC (조종형)',
     color: '#ff8a4c', rulesUrl: 'https://worldrobotleague.net/rules/roborave/',
-    events: ['sumo', 'middlebot', 'soccer_rc'],
+    events: ['sumo', 'line', 'middlebot', 'soccer_rc'],
   },
 };
 
 export const EVENTS = {
   humanoid_battle: {
     name: '휴머노이드 배틀', en: 'Humanoid Battle', league: 'wrl', icon: 'humanoid_battle',
-    play: 'control', kind: 'versus', engine: 'humanoid', status: 'soon',
+    play: 'control', kind: 'versus', engine: 'humanoid', status: 'ready',
     src: 'https://worldrobotleague.net/rules/humanoid-battle/',
     rules: [
       '1:1 대결 토너먼트 — 상대를 넘어뜨리거나(다운) 경기장 밖으로 밀어내 점수를 얻습니다',
@@ -30,7 +30,33 @@ export const EVENTS = {
       '링아웃·5초 이상 움직이지 않음(스탠딩 다운)도 1다운 · 다리 사이를 밀어 앞뒤로 넘어뜨리면 2다운',
       '경기장: 체급에 따라 90 × 90 cm ~ 약 198 × 198 cm, 두 로봇은 가운데 "11" 선 뒤에서 마주 보고 출발',
     ],
-    sim: ['로봇: Dynamic-Makers의 MAX-E1 휴머노이드 · 모션을 엑스박스 버튼에 연결'],
+    sim: ['로봇: ROBOTIS MAX-E1 (Dynamic-Makers와 같은 몸체 치수 · 관절 방향) · 1.2 kg → 밴텀급 경기장 120 × 120 cm', '엑스박스 버튼마다 공식 예제 모션: D패드 걷기·돌기 · LT 옆걸음 · RT 빠르게 · A 펀치 · B/X 팔 옆 공격 · RB/LB 킥 · 오른스틱 훅 · 왼스틱 막기 · Y 일어서기', '판정: 모션 재생 + 간이 판정 — 손발 끝이 상대 몸에 닿으면 타격, 힘과 자세(킥 중에는 불안정)에 따라 다운', '가상 상대 MAX-E1: 라운드가 올라갈수록 반응 · 조준 · 막기 · 공격 선택 · 일어서기가 좋아집니다'],
+  },
+  humanoid_relay: {
+    name: '휴머노이드 릴레이', en: 'Humanoid Relay', league: 'wrl', icon: 'humanoid_relay',
+    play: 'control', kind: 'record', engine: 'humanoid', status: 'soon',
+    src: 'https://worldrobotleague.net/rules/humanoid-relay/',
+    rules: [
+      '새 종목 — 체급 구분 없이 모든 선수가 함께 겨루는 통합 리그',
+      '대회 당일 선수끼리 연합(얼라이언스)을 만들어 미션을 함께 풀고 기록으로 순위를 정합니다',
+      '세부 규정(코스·미션·시간·점수)은 아직 공개 전입니다',
+    ],
+    sim: ['세부 규정이 나오기 전까지 가상 코스(걷기 → 바통 넘기기 → 미션)로 연습합니다'],
+  },
+  curling: {
+    name: '로봇 컬링', en: 'Robot Curling', league: 'wrl', icon: 'curling',
+    play: 'control', kind: 'versus', engine: 'curling', status: 'soon',
+    src: 'https://worldrobotleague.net/rules/curling/',
+    divisions: [{ key: 'drive', name: '드라이브 (바퀴 로봇)' }, { key: 'humanoid', name: '휴머노이드' }],
+    rules: [
+      '경기장 3000 × 1000 mm: 빨강 진영 · 회색 중앙 구역 · 파랑 진영, 가운데에 하우스(과녁)',
+      '하우스: 노랑 Ø500 1점 · 주황 Ø300 3점 · 초록 Ø150 5점 · 검정 Ø30 중심 50점',
+      '컬링 블록: 40 mm 정육면체 10 g, 팀당 10개 · 블록을 던지면(공중에 뜨면) 안 됩니다',
+      '경기 2분, 두 팀이 동시에 진행 · 대진표 경기에서 블록이 검정 중심에 닿으면 즉시 승리(콜드게임)',
+      '승부: 콜드게임 → 초록 블록 수 → 주황 → 노랑 순 · 회색 구역에 바퀴가 모두 들어가면(휴머노이드는 두 발) 실격',
+      '드라이브: 500 g 이하, 20 × 20 × 20 cm 이내 · 휴머노이드: 팔 260 mm, 그리퍼 폭 100 mm 이하 · 모두 무선 조종',
+    ],
+    sim: [],
   },
   othello: {
     name: '로봇배틀 오셀로', en: 'Robot Battle Othello', league: 'wrl', icon: 'othello',
@@ -74,6 +100,18 @@ export const EVENTS = {
     sim: ['로보메이커스 캐드 시뮬레이터에서 진행 — 캐드에서 만든 로봇(또는 기본 로봇)과 워드블럭 프로그램, 물리엔진(Rapier), 자동 튜닝 학습 · AI 카메라를 그대로 사용', '가상 상대 로봇: 라운드가 올라갈수록 속도 · 무게 · 반응 · 조준이 좋아집니다 (1~5단계)', '한 판 60초가 지나면 무승부 · 먼저 2판을 이기면 승리'],
     sim: ['로봇: 메카넘 4WD + EEZYbotARM MK2 진공 흡착 (ESP32 · Bluepad32 펌웨어와 같은 조종 매핑)', '방향키 주행(RT 파워) · LT+←→ 평행이동 · 오른스틱 어깨 · 왼스틱 엘보 · RB+오른스틱 턴테이블 · A 집기 · B 놓기', '경기장 배치와 점수표(기본 10점 × 층수 × 배수, 출발 매트 +20)는 공식 도면 확인 전 가정값입니다', '라운드마다 가상 팀의 기록을 넘어야 다음 라운드로 올라갑니다'],
   },
+  line: {
+    name: '라인 팔로잉', en: 'Line Following', league: 'roborave', icon: 'line',
+    play: 'code', kind: 'record', engine: 'cad', task: 'line', status: 'soon',
+    src: 'https://worldrobotleague.net/rules/roborave/',
+    rules: [
+      '120 × 180 cm 흰 트랙의 검은 선을 따라 타워까지 갔다 돌아오는 자율 주행 경기, 3분',
+      '선 폭 ES·MS 1.25 cm, HS 0.75 cm · 교차로 ES 0개, MS 1개, HS 2개',
+      '타워에 공을 넣고 출발점으로 돌아오기 → 이후 정해진 개수만큼 공을 더 배달하면 보너스',
+      '경기 내내 선 따라가기 프로그램이 로봇을 움직여야 합니다 · 로봇을 만지면 출발점으로',
+    ],
+    sim: ['로보메이커스 캐드 시뮬레이터의 RoboRAVE 라인 팔로우 ES · MS · HS 경기장으로 만들 예정입니다', '라운드마다 가상 팀의 기록을 넘어야 다음 라운드로 올라갑니다'],
+  },
   middlebot: {
     name: '미들봇', en: 'MiddleBot', league: 'roborave', icon: 'middlebot',
     play: 'control', kind: 'record', engine: 'middlebot', status: 'ready',
@@ -112,7 +150,7 @@ export function targetOf(engine, level) { if (engine === 'middlebot') return Mat
 export function levelText(engine, level) {
   if (engine === 'middlebot') return `목표 ${targetOf(engine, level)}점 넘기기`;
   if (engine === 'rc') return `AI ${Math.round(aiSkill('rc', level) * 100)}%`;
-  if (engine === 'cad') return `상대 로봇 ${1 + Math.round(level * 4)}단계 / 5`;
+  if (engine === 'cad' || engine === 'humanoid') return `상대 로봇 ${1 + Math.round(level * 4)}단계 / 5`;
   return `난이도 ${Math.round(level * 100)}%`;
 }
 export function aiSkill(engine, level) {
